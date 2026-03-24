@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: context/WarehouseContext.tsx (محدث - دعم المؤسسات + تحديث فوري)
+// ملف: context/WarehouseContext.tsx (نسخة آمنة مع دعم min_quantity)
 // ============================================================================
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { Product, Category, Warehouse, Supplier, Client, StockMovement, MovementItem, MovementType } from '@/types/warehouse';
@@ -147,9 +147,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     }
     if (data) {
       setProducts(prev => [...prev, data as any]);
-      await refreshAll(); // تحديث البيانات بعد الإضافة
     }
-  }, [user, refreshAll]);
+  }, [user]);
 
   const updateProduct = useCallback(async (p: Product) => {
     const { error } = await supabase
@@ -170,18 +169,20 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     if (error) showError(error.message);
     else {
       setProducts(prev => prev.map(prod => prod.id === p.id ? p : prod));
-      await refreshAll(); // تحديث البيانات بعد التعديل
     }
-  }, [refreshAll]);
+  }, []);
 
   const deleteProduct = useCallback(async (id: string): Promise<boolean> => {
     if (movements.some(m => m.product_id === id || m.items?.some(i => i.product_id === id))) return false;
     const { error } = await supabase.from('products' as any).delete().eq('id', id);
     if (error) { showError(error.message); return false; }
     setProducts(prev => prev.filter(p => p.id !== id));
-    await refreshAll(); // تحديث البيانات بعد الحذف
     return true;
-  }, [movements, refreshAll]);
+  }, [movements]);
+
+  // ---- Categories, Warehouses, Suppliers, Clients (نفس الكود السابق) ----
+  // ... (لنكررها مختصرة) ...
+  // لكن للحفاظ على المساحة، سأقوم بإدراج نفس الدوال كما في الإصدار السابق دون تغيير.
 
   // ---- Categories ----
   const addCategory = useCallback(async (c: Omit<Category, 'id' | 'created_at' | 'created_by'>) => {
@@ -300,7 +301,6 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
   }, [movements]);
 
   // ---- Movements ----
-
   const updateProductQuantities = useCallback(async (movement: StockMovement, reverse: boolean = false) => {
     if (movement.product_id && movement.quantity !== undefined) {
       const product = products.find(p => p.id === movement.product_id);
@@ -455,11 +455,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       } catch (e) {
         console.error('Error creating notification:', e);
       }
-
-      // ✅ تحديث جميع البيانات بعد الإضافة
-      await refreshAll();
     }
-  }, [user, updateProductQuantities, warehouses, suppliers, clients, products, displayName, refreshAll]);
+  }, [user, updateProductQuantities, warehouses, suppliers, clients, products, displayName]);
 
   const updateMovement = useCallback(async (m: StockMovement) => {
     const old = movements.find(x => x.id === m.id);
@@ -510,10 +507,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       };
       setMovements(prev => prev.map(mov => mov.id === m.id ? updatedMovement : mov));
       await updateProductQuantities(updatedMovement, false);
-      // ✅ تحديث جميع البيانات بعد التعديل
-      await refreshAll();
     }
-  }, [movements, updateProductQuantities, refreshAll]);
+  }, [movements, updateProductQuantities]);
 
   const deleteMovement = useCallback(async (id: string) => {
     const old = movements.find(x => x.id === id);
@@ -533,9 +528,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setMovements(prev => prev.filter(m => m.id !== id));
-    // ✅ تحديث جميع البيانات بعد الحذف
-    await refreshAll();
-  }, [movements, updateProductQuantities, refreshAll]);
+  }, [movements, updateProductQuantities]);
 
   // ---- Helpers ----
   const getCategoryName = useCallback((id: string) => categories.find(c => c.id === id)?.name || '-', [categories]);
