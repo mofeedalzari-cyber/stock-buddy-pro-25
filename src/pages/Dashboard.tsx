@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Package, Building2, Truck, ArrowLeftRight, AlertTriangle, TrendingUp, RefreshCw, ArrowDownCircle, ArrowUpCircle, BarChart3, AlertCircle } from 'lucide-react';
+import { Package, Building2, Truck, ArrowLeftRight, AlertTriangle, TrendingUp, RefreshCw, ArrowDownCircle, ArrowUpCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-
-const CHART_COLORS = ['hsl(174, 62%, 38%)', 'hsl(37, 95%, 55%)', 'hsl(220, 30%, 40%)', 'hsl(152, 60%, 40%)', 'hsl(0, 72%, 51%)'];
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Dashboard = () => {
   const { products, warehouses, suppliers, movements, categories, refreshAll, getWarehouseName } = useWarehouse();
@@ -21,26 +19,19 @@ const Dashboard = () => {
     toast({ title: t('updated'), description: t('data_updated') });
   };
 
-  // ✅ دالة للحصول على حد التنبيه للمنتج (افتراضي 2)
+  // دالة للحصول على حد التنبيه للمنتج (افتراضي 2)
   const getMinQuantity = (product: any) => product.min_quantity ?? 2;
 
-  // ✅ المنتجات المنخفضة: الكمية > 0 والكمية ≤ الحد الأدنى
+  // المنتجات المنخفضة: الكمية > 0 والكمية ≤ الحد الأدنى
   const lowStock = products.filter(p => p.quantity > 0 && p.quantity <= getMinQuantity(p));
-  
-  // ✅ المنتجات الحرجية (نفس lowStock) - يمكن استخدامها في التنبيه العلوي
   const criticalStock = lowStock;
-  
-  // المنتجات المنتهية (0)
   const outOfStock = products.filter(p => p.quantity === 0);
 
-  // إحصائيات المنتجات
   const totalProducts = products.length;
   const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
-
-  // إحصائيات المخازن
   const totalWarehouses = warehouses.length;
+  const totalSuppliers = suppliers.length;
 
-  // إحصائيات الحركات (مع دعم الحركات المتعددة)
   const totalMovements = movements.length;
   const inMovements = movements.filter(m => m.type === 'in');
   const outMovements = movements.filter(m => m.type === 'out');
@@ -55,31 +46,23 @@ const Dashboard = () => {
     return sum;
   }, 0);
 
-  // إحصائيات الموردين
-  const totalSuppliers = suppliers.length;
-
-  // بيانات الرسم البياني للحركات (وارد/صادر)
   const movementChartData = [
     { name: t('incoming'), value: totalInQuantity },
     { name: t('outgoing'), value: totalOutQuantity },
   ];
 
-  // بيانات الرسم البياني لتوزيع المنتجات حسب المخازن
   const warehouseProductData = warehouses.map(w => {
     const count = products.filter(p => p.warehouse_id === w.id).length;
     return { name: w.name, count };
   }).filter(w => w.count > 0);
 
-  // بيانات الرسم البياني للمنتجات حسب الفئة
   const categoryData = categories.map(cat => ({
     name: cat.name,
     count: products.filter(p => p.category_id === cat.id).length,
   }));
 
-  // آخر 5 حركات
   const recentMovements = movements.slice(-5).reverse();
 
-  // ✅ دالة لتحديد لون التحذير حسب الكمية والحد
   const getStockAlertColor = (product: any) => {
     const qty = product.quantity;
     const threshold = getMinQuantity(product);
@@ -99,7 +82,7 @@ const Dashboard = () => {
         </Button>
       </div>
 
-      {/* ✅ تحذير للمخزون المنخفض (حسب min_quantity لكل منتج) */}
+      {/* تنبيه المخزون المنخفض (حسب min_quantity) */}
       {criticalStock.length > 0 && (
         <div className="bg-warning/10 border border-warning/30 rounded-xl p-4">
           <div className="flex items-start gap-3">
@@ -109,7 +92,7 @@ const Dashboard = () => {
                 ⚠️ تنبيه: منتجات بكمية منخفضة ({criticalStock.length} منتج)
               </h3>
               <p className="text-xs text-muted-foreground mb-2">
-                المنتجات التالية وصلت إلى الحد الأدنى المحدد لها أو أقل، يرجى إعادة التوريد.
+                المنتجات التالية وصلت إلى الحد الأدنى المحدد لها أو أقل.
               </p>
               <div className="flex flex-wrap gap-2">
                 {criticalStock.slice(0, 5).map(p => (
@@ -127,6 +110,7 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* بطاقات الإحصائيات */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
         <StatCard label={t('dash_total_products')} value={totalProducts} icon={Package} color="primary" />
         <StatCard label={t('dash_warehouses')} value={totalWarehouses} icon={Building2} color="accent" />
@@ -136,6 +120,7 @@ const Dashboard = () => {
         <StatCard label={t('dash_low_stock')} value={lowStock.length} icon={AlertTriangle} color="destructive" />
       </div>
 
+      {/* موجز وارد / صادر */}
       <div className="grid grid-cols-2 gap-2 sm:gap-4">
         <div className="bg-card rounded-xl p-4 shadow-card border border-border flex items-center gap-4">
           <div className="w-12 h-12 rounded-lg bg-success/10 flex items-center justify-center">
@@ -227,12 +212,12 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* منتجات منخفضة (حسب min_quantity) وغير متوفرة */}
+      {/* منتجات منخفضة ومنتهية */}
       <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
         <div className="bg-card rounded-xl p-4 sm:p-5 shadow-card border border-border">
           <h3 className="text-sm sm:text-base font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-warning" />
-            {t('dash_low_stock_alert')} (حسب الحد المحدد)
+            {t('dash_low_stock_alert')}
           </h3>
           {lowStock.length === 0 ? (
             <p className="text-xs sm:text-sm text-muted-foreground">{t('no_data')}</p>
