@@ -36,7 +36,7 @@ const MovementsPage = () => {
   const [editing, setEditing] = useState<StockMovement | null>(null);
   const [movementType, setMovementType] = useState<'single' | 'multi'>('single');
 
-  // نموذج الحركة الواحدة: جميع الحقول فارغة، الكمية = null
+  // نموذج الحركة الواحدة
   const [form, setForm] = useState({
     product_id: '',
     warehouse_id: '',
@@ -49,7 +49,7 @@ const MovementsPage = () => {
     unit: ''
   });
 
-  // نموذج الحركة المتعددة: المخزن والجهة فارغان
+  // نموذج الحركة المتعددة
   const [multiForm, setMultiForm] = useState({
     warehouse_id: '',
     type: 'in' as MovementType,
@@ -59,7 +59,7 @@ const MovementsPage = () => {
     notes: ''
   });
 
-  // الأصناف: تبدأ بمنتج فارغ، كمية = null، وحدة فارغة
+  // الأصناف
   const [items, setItems] = useState<MovementItem[]>([
     { product_id: '', quantity: null, unit: '', notes: '' }
   ]);
@@ -86,10 +86,32 @@ const MovementsPage = () => {
     return total;
   };
 
-  // دالة للحصول على min_quantity للمنتج (افتراضي 2)
+  // دالة للحصول على min_quantity للمنتج
   const getProductMinQty = (productId: string) => {
     const product = products.find(p => p.id === productId);
     return product?.min_quantity ?? 2;
+  };
+
+  // ✅ دالة التحقق من تطابق الوحدة مع وحدة المنتج
+  const validateProductUnit = (productId: string, selectedUnit: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) {
+      toast({ title: 'خطأ', description: 'المنتج غير موجود', variant: 'destructive' });
+      return false;
+    }
+    if (!product.unit) {
+      // إذا لم يكن للمنتج وحدة محددة (منتجات قديمة)، نسمح مؤقتاً
+      return true;
+    }
+    if (product.unit !== selectedUnit) {
+      toast({
+        title: 'خطأ في الوحدة',
+        description: `المنتج "${product.name}" وحدته الأساسية هي "${product.unit}". لا يمكن تسجيل حركة بوحدة "${selectedUnit}".`,
+        variant: 'destructive'
+      });
+      return false;
+    }
+    return true;
   };
 
   // تصفية وترتيب الحركات
@@ -199,7 +221,7 @@ const MovementsPage = () => {
 
   const handleTypeChange = (type: MovementType) => {
     const entity_type = type === 'in' ? 'supplier' : 'client';
-    const entity_id = ''; // فارغة
+    const entity_id = '';
     if (movementType === 'single') setForm({ ...form, type, entity_type, entity_id });
     else setMultiForm({ ...multiForm, type, entity_type, entity_id });
   };
@@ -247,7 +269,10 @@ const MovementsPage = () => {
         return;
       }
 
-      // التحقق من الرصيد الحالي
+      // ✅ التحقق من تطابق الوحدة مع المنتج
+      if (!validateProductUnit(form.product_id, form.unit)) return;
+
+      // التحقق من الرصيد
       const currentStock = getCurrentStock(form.product_id, form.warehouse_id);
       if (form.type === 'out') {
         if (currentStock < form.quantity) {
@@ -258,7 +283,6 @@ const MovementsPage = () => {
           });
           return;
         }
-        // ✅ التحقق من الحد الأدنى بعد الصرف
         const minQty = getProductMinQty(form.product_id);
         const newStock = currentStock - form.quantity;
         if (newStock < minQty && minQty > 0) {
@@ -291,7 +315,7 @@ const MovementsPage = () => {
         return;
       }
 
-      // التحقق من صحة الأصناف
+      // التحقق من صحة الأصناف والوحدة لكل صنف
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         if (!item.product_id) {
@@ -306,9 +330,11 @@ const MovementsPage = () => {
           toast({ title: 'خطأ', description: `الصنف ${i+1}: الكمية يجب أن تكون أكبر من صفر`, variant: 'destructive' });
           return;
         }
+        // ✅ التحقق من تطابق الوحدة مع المنتج
+        if (!validateProductUnit(item.product_id, item.unit)) return;
       }
 
-      // التحقق من الرصيد والحد الأدنى لكل صنف في حالة الصرف
+      // التحقق من الرصيد والحد الأدنى لكل صنف (في حالة الصرف)
       if (multiForm.type === 'out') {
         for (const item of items) {
           const currentStock = getCurrentStock(item.product_id, multiForm.warehouse_id);
@@ -320,7 +346,6 @@ const MovementsPage = () => {
             });
             return;
           }
-          // ✅ التحقق من الحد الأدنى بعد الصرف
           const minQty = getProductMinQty(item.product_id);
           const newStock = currentStock - (item.quantity as number);
           if (newStock < minQty && minQty > 0) {
@@ -364,7 +389,7 @@ const MovementsPage = () => {
     setDeletingMovement(null);
   };
 
-  // ✅ دالة الطباعة المعدلة لتعمل على الكمبيوتر (تحميل ملف PDF) والأندرويد (مشاركة)
+  // دالة الطباعة (تعمل على الكمبيوتر والأندرويد)
   const printMovementNative = async (html: string, title: string) => {
     const platform = Capacitor.getPlatform();
     const tempDiv = document.createElement('div');
@@ -385,13 +410,11 @@ const MovementsPage = () => {
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
 
       if (platform === 'android') {
-        // Android: حفظ الملف ومشاركته
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
         const fileName = `${title.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
         const savedFile = await Filesystem.writeFile({ path: fileName, data: pdfBase64, directory: Directory.Cache });
         await Share.share({ title, url: savedFile.uri, dialogTitle: title });
       } else {
-        // ✅ الكمبيوتر / المتصفح: تحميل الملف مباشرة
         const pdfDataUrl = pdf.output('datauristring');
         const link = document.createElement('a');
         link.href = pdfDataUrl;
@@ -426,6 +449,7 @@ const MovementsPage = () => {
     }
   };
 
+  // ---------- JSX (نفس الكود الأصلي، مع إضافة التحقق من الوحدة في القوائم) ----------
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* شريط البحث والفلاتر */}
@@ -463,7 +487,7 @@ const MovementsPage = () => {
               <Plus className="w-4 h-4" />تسجيل حركة
             </Button>
             <Button onClick={openAddMulti} variant="secondary" className="text-sm gap-2">
-              <PackagePlus className="w-4 h-4" />صرف تعين
+              <PackagePlus className="w-4 h-4" />حركة تعيين
             </Button>
           </div>
         </div>
@@ -527,7 +551,7 @@ const MovementsPage = () => {
                 <th className="text-right p-3 font-semibold text-foreground hidden md:table-cell">بواسطة</th>
                 <th className="text-right p-3 font-semibold text-foreground hidden lg:table-cell">التاريخ</th>
                 <th className="text-center p-3 font-semibold text-foreground">إجراءات</th>
-               </tr>
+                </tr>
             </thead>
             <tbody>
               {activeMovements.map((m, i) => (
@@ -570,7 +594,9 @@ const MovementsPage = () => {
                   </td>
                 </tr>
               ))}
-              {activeMovements.length === 0 && <tr><td colSpan={isAdmin ? (viewTab === 'single' ? 11 : 9) : (viewTab === 'single' ? 10 : 8)} className="p-8 text-center text-muted-foreground">لا توجد حركات</td></tr>}
+              {activeMovements.length === 0 && (
+                <tr><td colSpan={isAdmin ? (viewTab === 'single' ? 11 : 9) : (viewTab === 'single' ? 10 : 8)} className="p-8 text-center text-muted-foreground">لا توجد حركات</td></tr>
+              )}
             </tbody>
           </table>
         </div>
