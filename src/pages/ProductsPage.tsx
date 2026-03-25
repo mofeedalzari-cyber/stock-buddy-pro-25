@@ -25,7 +25,7 @@ const ProductsPage = () => {
     category_id: '', 
     description: '',
     min_quantity: 2,
-    unit: 'قطعة'  // الوحدة الأساسية للمنتج
+    unit: 'قطعة'
   });
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -33,7 +33,7 @@ const ProductsPage = () => {
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ========== دوال حساب الكميات مع دعم الحركات المتعددة ==========
+  // دوال حساب الكميات
   const getWarehouseQty = (productId: string, warehouseId: string) => {
     let total = 0;
     movements.forEach(m => {
@@ -83,7 +83,24 @@ const ProductsPage = () => {
     return getProductTotalQty(productId);
   };
 
-  // ========== التصفية والبحث ==========
+  // ✅ دالة التحقق من عدم تكرار اسم المنتج
+  const checkDuplicateProductName = (name: string, excludeId?: string) => {
+    const existingProduct = products.find(p => 
+      p.name.trim().toLowerCase() === name.trim().toLowerCase() && 
+      p.id !== excludeId
+    );
+    if (existingProduct) {
+      toast({ 
+        title: 'تنبيه', 
+        description: `المنتج "${name}" مضاف مسبقاً. لا يمكن إضافة منتج بنفس الاسم.`, 
+        variant: 'destructive' 
+      });
+      return true;
+    }
+    return false;
+  };
+
+  // التصفية
   const filtered = products
     .filter(p => p.name.includes(search) || p.code.includes(search) || p.barcode.includes(search))
     .filter(p => !selectedWarehouse || movements.some(m => m.product_id === p.id && m.warehouse_id === selectedWarehouse) || (movements.some(m => m.items?.some(i => i.product_id === p.id && m.warehouse_id === selectedWarehouse))));
@@ -95,7 +112,6 @@ const ProductsPage = () => {
     toast({ title: 'تم التحديث', description: 'تم تحديث البيانات بنجاح' });
   };
 
-  // ========== تحديد المنتجات ==========
   const allSelected = filtered.length > 0 && filtered.every(p => selected.has(p.id));
   const toggleAll = () => {
     if (allSelected) setSelected(new Set());
@@ -107,7 +123,6 @@ const ProductsPage = () => {
     setSelected(next);
   };
 
-  // ========== الحذف الجماعي ==========
   const handleBulkDelete = async () => {
     const ids = Array.from(selected);
     let deleted = 0, linked = 0;
@@ -124,11 +139,9 @@ const ProductsPage = () => {
     setBulkDeleteDialog(false);
   };
 
-  // ========== توليد الكود والباركود ==========
   const generateCode = () => `P-${Date.now()}`;
   const generateBarcode = () => `${Math.floor(100000 + Math.random() * 900000)}`;
 
-  // ========== فتح نموذج الإضافة ==========
   const openAdd = () => {
     setEditing(null);
     setForm({
@@ -143,7 +156,6 @@ const ProductsPage = () => {
     setDialogOpen(true);
   };
 
-  // ========== فتح نموذج التعديل ==========
   const openEdit = (p: Product) => {
     setEditing(p);
     setForm({
@@ -158,7 +170,6 @@ const ProductsPage = () => {
     setDialogOpen(true);
   };
 
-  // ========== حفظ المنتج (إضافة أو تعديل) ==========
   const handleSave = async () => {
     if (!form.name.trim()) {
       toast({ title: 'تنبيه', description: 'يرجى إدخال جميع البيانات المطلوبة', variant: 'destructive' });
@@ -168,6 +179,14 @@ const ProductsPage = () => {
       toast({ title: 'تنبيه', description: 'يرجى اختيار الوحدة', variant: 'destructive' });
       return;
     }
+    
+    // ✅ التحقق من عدم تكرار الاسم
+    if (editing) {
+      if (checkDuplicateProductName(form.name, editing.id)) return;
+    } else {
+      if (checkDuplicateProductName(form.name)) return;
+    }
+    
     if (editing) {
       await updateProduct({
         ...editing,
@@ -179,7 +198,7 @@ const ProductsPage = () => {
         min_quantity: form.min_quantity,
         unit: form.unit
       });
-      await refreshAll(); // تحديث البيانات بعد التعديل
+      await refreshAll();
       toast({ title: 'تم التعديل', description: 'تم تعديل المنتج بنجاح' });
     } else {
       await addProduct({
@@ -193,13 +212,12 @@ const ProductsPage = () => {
         min_quantity: form.min_quantity,
         unit: form.unit
       });
-      await refreshAll(); // تحديث القائمة بعد الإضافة
+      await refreshAll();
       toast({ title: 'تم الإضافة', description: 'تم إضافة المنتج بنجاح' });
     }
     setDialogOpen(false);
   };
 
-  // ========== تأكيد الحذف ==========
   const confirmDelete = (p: Product) => {
     setDeletingProduct(p);
     setDeleteDialog(true);
@@ -217,7 +235,6 @@ const ProductsPage = () => {
     setDeletingProduct(null);
   };
 
-  // ========== تلوين الكمية حسب الحد الأدنى ==========
   const getQuantityStyle = (product: Product) => {
     const qty = getDisplayQty(product.id);
     const threshold = product.min_quantity ?? 2;
@@ -226,7 +243,6 @@ const ProductsPage = () => {
     return 'bg-success/10 text-success';
   };
 
-  // ========== بطاقة المنتج (للعرض الجوال) ==========
   const MobileCard = ({ p }: { p: Product }) => {
     const qty = getDisplayQty(p.id);
     const threshold = p.min_quantity ?? 2;
@@ -256,10 +272,8 @@ const ProductsPage = () => {
     );
   };
 
-  // ========== العرض ==========
   return (
     <div className="space-y-3 sm:space-y-4">
-      {/* شريط البحث والفلاتر */}
       <div className="flex flex-col gap-3">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -291,7 +305,6 @@ const ProductsPage = () => {
         </div>
       </div>
 
-      {/* عرض الجوال (بطاقات) */}
       <div className="sm:hidden space-y-2">
         {isAdmin && filtered.length > 0 && (
           <div className="flex items-center gap-2 px-1">
@@ -303,7 +316,6 @@ const ProductsPage = () => {
         {filtered.length === 0 && <p className="text-center text-muted-foreground py-8 text-sm">لا توجد منتجات</p>}
       </div>
 
-      {/* جدول سطح المكتب */}
       <div className="hidden sm:block bg-card rounded-xl shadow-card border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -318,7 +330,7 @@ const ProductsPage = () => {
                 <th className="text-right p-3 font-semibold text-foreground">حد التنبيه</th>
                 {!selectedWarehouse && <th className="text-right p-3 font-semibold text-foreground hidden lg:table-cell">المخازن</th>}
                 <th className="text-center p-3 font-semibold text-foreground">إجراءات</th>
-               </tr>
+                </tr>
             </thead>
             <tbody>
               {filtered.map(p => {
@@ -357,7 +369,7 @@ const ProductsPage = () => {
         </div>
       </div>
 
-      {/* حوار الإضافة / التعديل */}
+      {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
@@ -427,7 +439,7 @@ const ProductsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* حوار تأكيد الحذف الفردي */}
+      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
         <DialogContent className="max-w-[95vw] sm:max-w-sm" dir="rtl">
           <DialogHeader><DialogTitle>تأكيد الحذف</DialogTitle></DialogHeader>
@@ -441,7 +453,7 @@ const ProductsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* حوار الحذف الجماعي */}
+      {/* Bulk Delete Dialog */}
       <Dialog open={bulkDeleteDialog} onOpenChange={setBulkDeleteDialog}>
         <DialogContent className="max-w-[95vw] sm:max-w-sm" dir="rtl">
           <DialogHeader><DialogTitle>تأكيد حذف المحدد</DialogTitle></DialogHeader>
