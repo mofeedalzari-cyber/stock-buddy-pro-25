@@ -35,7 +35,7 @@ const MovementsPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StockMovement | null>(null);
   const [movementType, setMovementType] = useState<'single' | 'multi'>('single');
-  const [saving, setSaving] = useState(false); // ✅ حالة لمنع النقر المتكرر
+  const [saving, setSaving] = useState(false);
 
   // نموذج الحركة الواحدة
   const [form, setForm] = useState({
@@ -70,7 +70,7 @@ const MovementsPage = () => {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
 
-  // ✅ تحسين: تخزين خريطة وحدات المنتجات لتسريع التحقق
+  // ✅ خريطة وحدات المنتجات (تسريع التحقق)
   const productUnitMap = useMemo(() => {
     const map = new Map<string, string>();
     products.forEach(p => {
@@ -79,7 +79,7 @@ const MovementsPage = () => {
     return map;
   }, [products]);
 
-  // ✅ تحسين: دالة حساب الرصيد لجميع المنتجات في مخزن معين (مرة واحدة)
+  // ✅ دالة حساب الرصيد لجميع المنتجات في مخزن معين (مرة واحدة)
   const getStockMapForWarehouse = useMemo(() => {
     return (warehouseId: string) => {
       const stockMap = new Map<string, number>();
@@ -126,11 +126,10 @@ const MovementsPage = () => {
     return product?.min_quantity ?? 2;
   };
 
-  // ✅ تحسين: دالة التحقق من تطابق الوحدة (باستخدام الخريطة)
+  // ✅ دالة التحقق من تطابق الوحدة (باستخدام الخريطة)
   const validateProductUnit = (productId: string, selectedUnit: string) => {
     const productUnit = productUnitMap.get(productId);
     if (!productUnit) {
-      // إذا لم يكن للمنتج وحدة محددة، نسمح مؤقتاً
       return true;
     }
     if (productUnit !== selectedUnit) {
@@ -276,8 +275,7 @@ const MovementsPage = () => {
   };
 
   const handleSave = async () => {
-    setSaving(true); // ✅ منع النقر المتكرر وإظهار مؤشر التحميل
-    
+    setSaving(true);
     try {
       if (movementType === 'single') {
         // التحقق من الحقول الأساسية
@@ -303,10 +301,8 @@ const MovementsPage = () => {
           return;
         }
 
-        // التحقق من تطابق الوحدة مع المنتج
         if (!validateProductUnit(form.product_id, form.unit)) return;
 
-        // التحقق من الرصيد
         const currentStock = getCurrentStock(form.product_id, form.warehouse_id);
         if (form.type === 'out') {
           if (currentStock < form.quantity) {
@@ -334,7 +330,7 @@ const MovementsPage = () => {
         const typeMsg = form.type === 'in' ? 'تم توريد للمخزن بنجاح' : 'تم تصدير حركة بنجاح';
         toast({ title: editing ? 'تم التعديل' : (form.type === 'in' ? '✅ توريد' : '📤 تصدير'), description: typeMsg });
       } else {
-        // ========== الحركة المتعددة (محسنة للسرعة) ==========
+        // ========== الحركة المتعددة ==========
         
         // 1. التحقق من الحقول الأساسية
         if (!multiForm.warehouse_id) {
@@ -351,7 +347,7 @@ const MovementsPage = () => {
           return;
         }
 
-        // 2. التحقق من صحة الأصناف (بدون حساب الرصيد)
+        // 2. التحقق من صحة الأصناف
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
           if (!item.product_id) {
@@ -369,10 +365,10 @@ const MovementsPage = () => {
           if (!validateProductUnit(item.product_id, item.unit)) return;
         }
 
-        // 3. ✅ تحسين: حساب الرصيد لجميع المنتجات دفعة واحدة (مرة واحدة فقط)
+        // 3. حساب الرصيد لجميع المنتجات دفعة واحدة
         const stockMap = getStockMapForWarehouse(multiForm.warehouse_id);
 
-        // 4. التحقق من الرصيد والحد الأدنى (باستخدام الخريطة المحسوبة)
+        // 4. التحقق من الرصيد والحد الأدنى
         if (multiForm.type === 'out') {
           for (const item of items) {
             const currentStock = stockMap.get(item.product_id) || 0;
@@ -423,7 +419,7 @@ const MovementsPage = () => {
       console.error('Error saving movement:', error);
       toast({ title: 'خطأ', description: 'حدث خطأ أثناء حفظ الحركة', variant: 'destructive' });
     } finally {
-      setSaving(false); // ✅ إعادة تفعيل الزر
+      setSaving(false);
     }
   };
 
@@ -439,7 +435,7 @@ const MovementsPage = () => {
     setDeletingMovement(null);
   };
 
-  // دالة الطباعة (تعمل على الكمبيوتر والأندرويد)
+  // دالة الطباعة
   const printMovementNative = async (html: string, title: string) => {
     const platform = Capacitor.getPlatform();
     const tempDiv = document.createElement('div');
@@ -601,12 +597,16 @@ const MovementsPage = () => {
                 <th className="text-right p-3 font-semibold text-foreground hidden md:table-cell">بواسطة</th>
                 <th className="text-right p-3 font-semibold text-foreground hidden lg:table-cell">التاريخ</th>
                 <th className="text-center p-3 font-semibold text-foreground">إجراءات</th>
-                 </tr>
+              </tr>
             </thead>
             <tbody>
               {activeMovements.map((m, i) => (
                 <tr key={m.id} className={`border-b border-border last:border-0 hover:bg-secondary/30 transition-colors ${selectedItems.has(m.id) ? 'bg-primary/5' : ''}`}>
-                  {isAdmin && <td className="p-3"><Checkbox checked={selectedItems.has(m.id)} onCheckedChange={() => toggleOne(m.id)} />}</td>}
+                  {isAdmin && (
+                    <td className="p-3">
+                      <Checkbox checked={selectedItems.has(m.id)} onCheckedChange={() => toggleOne(m.id)} />
+                    </td>
+                  )}
                   <td className="p-3 text-foreground font-medium">{i + 1}</td>
                   <td className="p-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
@@ -881,10 +881,10 @@ const MovementsPage = () => {
                                 <Trash2 className="w-4 h-4" />
                               </button>
                              </td>
-                          </tr>
+                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                     </table>
                   </div>
 
                   <Button onClick={addItem} variant="outline" size="sm" className="mt-2 w-full sm:w-auto">
