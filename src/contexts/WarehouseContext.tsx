@@ -152,7 +152,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         ...p,
         created_by: user.id,
         unit: p.unit || 'قطعة',
-        min_quantity: p.min_quantity ?? 2
+        min_quantity: p.min_quantity ?? 2,
+        pack_size: p.pack_size ?? 1      // ✅ إضافة حجم العبوة
       })
       .select()
       .single();
@@ -179,7 +180,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         description: p.description,
         image: p.image,
         unit: p.unit,
-        min_quantity: p.min_quantity
+        min_quantity: p.min_quantity,
+        pack_size: p.pack_size          // ✅ إضافة حجم العبوة
       })
       .eq('id', p.id);
     if (error) showError(error.message);
