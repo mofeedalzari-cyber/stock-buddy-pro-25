@@ -786,6 +786,18 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
               </div>
             </div>
 
+            {/* ✅ عرض معلومات حجم العبوة إذا كانت الوحدة كرتون */}
+            {form.unit === 'كرتون' && form.product_id && (
+              <div className="bg-muted/30 rounded-md p-2 text-xs">
+                <span className="font-semibold">ℹ️ معلومات العبوة:</span>{' '}
+                {(() => {
+                  const product = products.find(p => p.id === form.product_id);
+                  const packSize = product?.pack_size || 1;
+                  return `1 كرتون = ${packSize} قطعة`;
+                })()}
+              </div>
+            )}
+
             {/* ملاحظات عامة */}
             <div className="space-y-1.5">
               <Label className="text-xs sm:text-sm">ملاحظات عامة</Label>
@@ -922,7 +934,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
                         <th className="p-1 text-right">الوحدة <span className="text-destructive">*</span></th>
                         <th className="p-1 text-right">ملاحظات</th>
                         <th className="p-1"></th>
-                       </tr>
+                        </tr>
                     </thead>
                     <tbody>
                       {items.map((item, index) => (
@@ -971,10 +983,10 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
                               <Trash2 className="w-4 h-4" />
                             </button>
                            </td>
-                         </tr>
+                         </td>
                       ))}
                     </tbody>
-                   </table>
+                  </table>
                 </div>
 
                 <Button onClick={addItem} variant="outline" size="sm" className="mt-2 w-full sm:w-auto">
