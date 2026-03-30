@@ -1,13 +1,9 @@
 // ============================================================================
-// ملف: context/WarehouseContext.tsx
-// ============================================================================
-// هذا الملف يحتوي على سياق التطبيق الرئيسي لإدارة المخازن،
-// ويوفر جميع الدوال اللازمة للتعامل مع المنتجات، التصنيفات، المخازن،
-// الموردين، العملاء، والحركات، مع دعم الوحدة (unit) والحد الأدنى للتنبيه (min_quantity).
+// ملف: context/WarehouseContext.tsx (محدث - دعم الوحدات المتكامل)
 // ============================================================================
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { Product, Category, Warehouse, Supplier, Client, StockMovement, MovementItem, MovementType } from '@/types/warehouse';
+import { Product, Category, Warehouse, Supplier, Client, StockMovement, MovementItem, MovementType, Unit, UnitConversion } from '@/types/warehouse';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +21,8 @@ interface WarehouseContextType {
   clients: Client[];
   movements: StockMovement[];
   loading: boolean;
+  units: Unit[];
+  unitConversions: UnitConversion[];
   addProduct: (p: Omit<Product, 'id' | 'created_at' | 'created_by'>) => Promise<void>;
   updateProduct: (p: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<boolean>;
@@ -49,6 +47,8 @@ interface WarehouseContextType {
   getClientName: (id: string) => string;
   getProductName: (id: string) => string;
   getUserName: (id: string | null) => string;
+  getUnitName: (id: string) => string;
+  convertQuantity: (quantity: number, fromUnitId: string, toUnitId: string) => number;
   isLinkedToMovement: (type: 'product' | 'category' | 'warehouse' | 'supplier' | 'client', id: string) => boolean;
   refreshAll: () => Promise<void>;
 }
@@ -63,6 +63,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [unitConversions, setUnitConversions] = useState<UnitConversion[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, displayName } = useAuth();
   const { toast } = useToast();
@@ -70,7 +72,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
   // ========== جلب جميع البيانات من Supabase ==========
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [catRes, whRes, supRes, clRes, prodRes, movRes, profRes] = await Promise.all([
+    const [catRes, whRes, supRes, clRes, prodRes, movRes, profRes, unitsRes, convRes] = await Promise.all([
       supabase.from('categories').select('*'),
       supabase.from('warehouses').select('*'),
       supabase.from('suppliers').select('*'),
@@ -78,6 +80,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       supabase.from('products').select('*'),
       supabase.from('stock_movements').select('*'),
       supabase.from('profiles').select('user_id, display_name'),
+      supabase.from('units').select('*'),
+      supabase.from('unit_conversions').select('*'),
     ]);
     if (catRes.data) setCategories(catRes.data as Category[]);
     if (whRes.data) setWarehouses(whRes.data as Warehouse[]);
@@ -96,6 +100,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       (profRes.data as any[]).forEach((p: any) => { map[p.user_id] = p.display_name; });
       setProfiles(map);
     }
+    if (unitsRes.data) setUnits(unitsRes.data as Unit[]);
+    if (convRes.data) setUnitConversions(convRes.data as UnitConversion[]);
     setLoading(false);
   }, []);
 
@@ -134,6 +140,12 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
           }
         });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, () => {
+        supabase.from('units').select('*').then(r => { if (r.data) setUnits(r.data as Unit[]); });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'unit_conversions' }, () => {
+        supabase.from('unit_conversions').select('*').then(r => { if (r.data) setUnitConversions(r.data as UnitConversion[]); });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]);
@@ -153,7 +165,9 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         created_by: user.id,
         unit: p.unit || 'قطعة',
         min_quantity: p.min_quantity ?? 2,
-        pack_size: p.pack_size ?? 1      // ✅ إضافة حجم العبوة
+        pack_size: p.pack_size ?? 1,
+        base_unit_id: p.base_unit_id,
+        display_unit_id: p.display_unit_id
       })
       .select()
       .single();
@@ -181,7 +195,9 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         image: p.image,
         unit: p.unit,
         min_quantity: p.min_quantity,
-        pack_size: p.pack_size          // ✅ إضافة حجم العبوة
+        pack_size: p.pack_size,
+        base_unit_id: p.base_unit_id,
+        display_unit_id: p.display_unit_id
       })
       .eq('id', p.id);
     if (error) showError(error.message);
@@ -429,7 +445,6 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
             created_by: user.id,
           });
 
-          // تحقق من المخزون المنخفض باستخدام min_quantity
           const updatedProduct = products.find(p => p.id === newMovement.product_id);
           if (updatedProduct) {
             const newQty = newMovement.type === 'out'
@@ -556,6 +571,25 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     return profiles[id] || '-';
   }, [profiles]);
 
+  // ✅ دوال الوحدات
+  const getUnitName = useCallback((id: string) => {
+    const unit = units.find(u => u.id === id);
+    return unit?.name || '-';
+  }, [units]);
+
+  const convertQuantity = useCallback((quantity: number, fromUnitId: string, toUnitId: string): number => {
+    if (fromUnitId === toUnitId) return quantity;
+    
+    const direct = unitConversions.find(uc => uc.from_unit_id === fromUnitId && uc.to_unit_id === toUnitId);
+    if (direct) return quantity * direct.factor;
+    
+    const reverse = unitConversions.find(uc => uc.from_unit_id === toUnitId && uc.to_unit_id === fromUnitId);
+    if (reverse) return quantity / reverse.factor;
+    
+    console.warn(`No conversion found from ${fromUnitId} to ${toUnitId}`);
+    return quantity;
+  }, [unitConversions]);
+
   const isLinkedToMovement = useCallback((type: 'product' | 'category' | 'warehouse' | 'supplier' | 'client', id: string): boolean => {
     switch (type) {
       case 'product':
@@ -577,10 +611,10 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshAll = fetchAll;
 
-  // ========== توفير السياق ==========
   return (
     <WarehouseContext.Provider value={{
       products, categories, warehouses, suppliers, clients, movements, loading,
+      units, unitConversions,
       addProduct, updateProduct, deleteProduct,
       addCategory, updateCategory, deleteCategory,
       addWarehouse, updateWarehouse, deleteWarehouse,
@@ -588,6 +622,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       addClient, updateClient, deleteClient,
       addMovement, updateMovement, deleteMovement,
       getCategoryName, getWarehouseName, getSupplierName, getClientName, getProductName, getUserName,
+      getUnitName, convertQuantity,
       isLinkedToMovement, refreshAll,
     }}>
       {children}
