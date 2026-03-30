@@ -427,7 +427,7 @@ const ProductsPage = () => {
             </div>
             {/* ✅ حقل حجم العبوة */}
             <div className="space-y-1.5">
-              <Label className="text-xs sm:text-sm">حجم العبوة (قطعة/كرتون)</Label>
+              <Label className="text-xs sm:text-sm">حجم العبوة</Label>
               <Input
                 type="number"
                 placeholder="مثال: 12"
