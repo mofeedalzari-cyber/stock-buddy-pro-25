@@ -543,13 +543,13 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       await updateProductQuantities(newMovement, false);
 
       // ========== إنشاء إشعار الحركة (باستخدام الكمية والوحدة المعروضة) ==========
-      const warehouseName = warehouses.find(w => w.id === newMovement.warehouse_id)?.name || 'مخزن';
-      const entityName = newMovement.entity_type === 'supplier'
-        ? suppliers.find(s => s.id === newMovement.entity_id)?.name || 'مورد'
-        : clients.find(c => c.id === newMovement.entity_id)?.name || 'عميل';
-      const userName = displayName || 'مستخدم';
-
       try {
+        const warehouseName = warehouses.find(w => w.id === newMovement.warehouse_id)?.name || 'مخزن';
+        const entityName = newMovement.entity_type === 'supplier'
+          ? suppliers.find(s => s.id === newMovement.entity_id)?.name || 'مورد'
+          : clients.find(c => c.id === newMovement.entity_id)?.name || 'عميل';
+        const userName = displayName || 'مستخدم';
+
         if (newMovement.product_id && newMovement.quantity !== undefined) {
           const productName = products.find(p => p.id === newMovement.product_id)?.name || 'منتج';
           // استخدام الكمية والوحدة المعروضة للإشعار
@@ -573,7 +573,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
             created_by: user.id,
           });
 
-          // إشعار المخزون المنخفض (يتم باستخدام الكمية الأساسية فقط، لأن التحذير يعتمد على الكمية الفعلية)
+          // إشعار المخزون المنخفض (يتم باستخدام الكمية الأساسية)
           const updatedProduct = products.find(p => p.id === newMovement.product_id);
           if (updatedProduct) {
             const newQty = newMovement.type === 'out'
@@ -613,6 +613,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch (e) {
         console.error('Error creating notification:', e);
+        // لا نعرض خطأ للمستخدم حتى لا تؤثر على عملية الإضافة
       }
     }
   }, [user, updateProductQuantities, warehouses, suppliers, clients, products, displayName, getUnitName]);
