@@ -3,13 +3,14 @@
 // ============================================================================
 // هذا الملف يحتوي على جميع الدوال المساعدة لصفحة التقارير، بما في ذلك:
 // - حساب الكميات مع دعم الحركات المتعددة (items)
-// - توسيع الحركات لتفاصيل كل صنف
+// - توسيع الحركات لتفاصيل كل صنف مع دعم display_quantity و display_unit_id
 // - تصدير Excel و PDF
 // - بناء HTML للتقارير المختلفة مع ترويسة موحدة تحتوي على:
 //   * النص الرسمي (الجمهورية اليمنية، وزارة الدفاع، ...)
 //   * الصورة العلوية (logn1.png) وفوقها الشعار الرئيسي (logo.png)
 //   * التاريخ واليوم
 // - تذييل بتوقيع مسؤول المخازن ومسجل التقرير
+// - دعم الوحدات (display_quantity, display_unit_id, pack_size)
 
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -27,11 +28,7 @@ export const COLORS = ['hsl(174, 62%, 38%)', 'hsl(37, 95%, 55%)', 'hsl(220, 30%,
 // ==========================================================================
 
 /**
- * حساب كمية منتج معين في مخزن محدد.
- * @param movements قائمة الحركات
- * @param productId معرف المنتج
- * @param warehouseId معرف المخزن
- * @returns إجمالي الكمية (موجب للوارد، سالب للصادر)
+ * حساب كمية منتج معين في مخزن محدد (بالوحدة الأساسية).
  */
 export const getWarehouseQty = (
   movements: StockMovement[],
@@ -54,7 +51,7 @@ export const getWarehouseQty = (
 };
 
 /**
- * حساب إجمالي كمية منتج معين من جميع الحركات (بغض النظر عن المخزن).
+ * حساب إجمالي كمية منتج معين من جميع الحركات (بالوحدة الأساسية).
  */
 export const getProductTotalQty = (movements: StockMovement[], productId: string) => {
   let total = 0;
@@ -135,11 +132,12 @@ export const getProductClients = (
 };
 
 // ==========================================================================
-// 2. توسيع الحركات (لتفاصيل كل صنف في الحركات المتعددة)
+// 2. توسيع الحركات (لتفاصيل كل صنف في الحركات المتعددة) مع دعم display
 // ==========================================================================
 
 /**
  * تحويل الحركات إلى مصفوفة مسطحة تحتوي كل صنف على حدة (مفردة أو من متعددة).
+ * تضم الكمية والوحدة المعروضة (display) إن وجدت.
  */
 export const expandMovements = (
   movements: StockMovement[],
@@ -154,6 +152,8 @@ export const expandMovements = (
         productName: getProductName(m.product_id),
         quantity: m.quantity,
         unit: m.unit,
+        display_quantity: m.display_quantity ?? m.quantity,
+        display_unit_id: m.display_unit_id ?? m.unit_id,
       }];
     } else if (m.items) {
       // حركة متعددة: ننشئ عنصراً لكل صنف
@@ -164,6 +164,8 @@ export const expandMovements = (
         productName: getProductName(item.product_id),
         quantity: item.quantity,
         unit: item.unit,
+        display_quantity: item.display_quantity ?? item.quantity,
+        display_unit_id: item.display_unit_id ?? item.unit_id,
         itemNotes: item.notes,
       }));
     }
@@ -252,11 +254,12 @@ export const printPdfFromHtml = async (html: string, title: string, toast: any) 
 };
 
 // ==========================================================================
-// 4. بناء HTML للتقارير المختلفة (مع ترويسة موحدة)
+// 4. بناء HTML للتقارير المختلفة (مع ترويسة موحدة ودعم الوحدات)
 // ==========================================================================
 
 /**
  * بناء HTML لتقرير الموردين (كل مورد في جدول منفصل).
+ * @param getUnitName دالة للحصول على اسم الوحدة من معرفها
  */
 export const buildSuppliersReportHtml = (
   selectedWarehouse: string,
@@ -265,7 +268,8 @@ export const buildSuppliersReportHtml = (
   getWarehouseName: (id: string) => string,
   getSupplierName: (id: string) => string,
   warehouseManager: string,
-  userName: string
+  userName: string,
+  getUnitName: (unitId: string) => string
 ): string => {
   const warehouseName = selectedWarehouse ? getWarehouseName(selectedWarehouse) : 'جميع المخازن';
   const today = new Date().toLocaleDateString('ar-SA');
@@ -466,13 +470,16 @@ export const buildSuppliersReportHtml = (
           <tbody>
     `;
     supplier.movements.forEach((item, i) => {
+      const displayQty = item.display_quantity ?? item.quantity;
+      const unitId = item.display_unit_id ?? item.unit_id;
+      const unitName = unitId ? getUnitName(unitId) : (item.unit || 'قطعة');
       html += `
         <tr>
           <td>${i + 1}</td>
           <td>${item.date}</td>
           <td>${item.productName}</td>
-          <td>${item.quantity}</td>
-          <td>${item.unit || '-'}</td>
+          <td>${displayQty}</td>
+          <td>${unitName}</td>
           <td>${getWarehouseName(item.warehouse_id)}</td>
         </tr>
       `;
@@ -507,6 +514,7 @@ export const buildSuppliersReportHtml = (
 
 /**
  * بناء HTML لتقرير جهات الصرف.
+ * @param getUnitName دالة للحصول على اسم الوحدة من معرفها
  */
 export const buildClientsReportHtml = (
   selectedWarehouse: string,
@@ -515,7 +523,8 @@ export const buildClientsReportHtml = (
   getWarehouseName: (id: string) => string,
   getClientName: (id: string) => string,
   warehouseManager: string,
-  userName: string
+  userName: string,
+  getUnitName: (unitId: string) => string
 ): string => {
   const warehouseName = selectedWarehouse ? getWarehouseName(selectedWarehouse) : 'جميع المخازن';
   const today = new Date().toLocaleDateString('ar-SA');
@@ -714,13 +723,16 @@ export const buildClientsReportHtml = (
           <tbody>
     `;
     client.movements.forEach((item, i) => {
+      const displayQty = item.display_quantity ?? item.quantity;
+      const unitId = item.display_unit_id ?? item.unit_id;
+      const unitName = unitId ? getUnitName(unitId) : (item.unit || 'قطعة');
       html += `
         <tr>
           <td>${i + 1}</td>
           <td>${item.date}</td>
           <td>${item.productName}</td>
-          <td>${item.quantity}</td>
-          <td>${item.unit || '-'}</td>
+          <td>${displayQty}</td>
+          <td>${unitName}</td>
           <td>${getWarehouseName(item.warehouse_id)}</td>
         </tr>
       `;
@@ -754,6 +766,7 @@ export const buildClientsReportHtml = (
 
 /**
  * بناء HTML للتقارير البسيطة (المنتجات، الحركات، المخازن، المخزون المنخفض، الكيانات).
+ * @param getUnitName دالة للحصول على اسم الوحدة من معرفها (تستخدم في عرض الحركات)
  */
 export const buildSimplePdfHtml = (
   title: string,
@@ -762,7 +775,8 @@ export const buildSimplePdfHtml = (
   selectedWarehouse: string,
   getWarehouseName: (id: string) => string,
   warehouseManager: string,
-  userName: string
+  userName: string,
+  getUnitName?: (unitId: string) => string  // اختياري للتقارير التي لا تحتاجها
 ): string => {
   const warehouseName = selectedWarehouse ? getWarehouseName(selectedWarehouse) : 'جميع المخازن';
   const today = new Date().toLocaleDateString('ar-SA');
@@ -885,7 +899,7 @@ export const buildSimplePdfHtml = (
         <h1>نظام إدارة المخازن</h1>
         <h2>${title} - المخزن: ${warehouseName}</h2>
         <table>
-          <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+          <thead> <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr> </thead>
           <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
         </table>
         <div class="signatures">
