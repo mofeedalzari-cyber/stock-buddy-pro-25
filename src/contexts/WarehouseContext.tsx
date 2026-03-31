@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: context/WarehouseContext.tsx (محدث - دعم الوحدات المتكامل مع display_quantity و display_unit)
+// ملف: context/WarehouseContext.tsx (محدث - دعم الإشعارات بالوحدة المدخلة)
 // ============================================================================
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
@@ -12,7 +12,7 @@ import {
   getLowStockNotification,
 } from '@/utils/notificationTemplates';
 
-// ========== تعريف الأنواع المحلية لضمان الاكتمال ==========
+// ========== تعريف الأنواع ==========
 export type MovementType = 'in' | 'out';
 
 export interface MovementItem {
@@ -117,7 +117,6 @@ export interface UnitConversion {
   factor: number;
 }
 
-// ========== واجهة السياق ==========
 interface WarehouseContextType {
   products: Product[];
   categories: Category[];
@@ -174,7 +173,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
   const { user, displayName } = useAuth();
   const { toast } = useToast();
 
-  // ========== جلب جميع البيانات من Supabase ==========
+  // ========== جلب جميع البيانات ==========
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [catRes, whRes, supRes, clRes, prodRes, movRes, profRes, unitsRes, convRes] = await Promise.all([
@@ -197,7 +196,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       const movementsData = (movRes.data as any[]).map((mov: any) => ({
         ...mov,
         items: mov.items ? (typeof mov.items === 'string' ? JSON.parse(mov.items) : mov.items) : undefined,
-        display_unit_id: mov.display_unit,   // تحويل display_unit إلى display_unit_id
+        display_unit_id: mov.display_unit,
       })) as StockMovement[];
       setMovements(movementsData);
     }
@@ -215,7 +214,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     if (user) fetchAll();
   }, [user, fetchAll]);
 
-  // ========== الاشتراك المباشر (Realtime) للتحديثات الفورية ==========
+  // ========== Realtime ==========
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -437,7 +436,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     return true;
   }, [movements]);
 
-  // ========== دوال تحديث الكميات في المنتجات ==========
+  // ========== دوال تحديث الكميات ==========
   const updateProductQuantities = useCallback(async (movement: StockMovement, reverse: boolean = false) => {
     if (movement.product_id && movement.quantity !== undefined && movement.quantity !== null) {
       const product = products.find(p => p.id === movement.product_id);
@@ -473,7 +472,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [products]);
 
-  // ========== دوال الحركات مع دعم display_quantity و display_unit ==========
+  // ========== دوال الحركات ==========
   const addMovement = useCallback(async (m: Omit<StockMovement, 'id' | 'created_at' | 'created_by'>) => {
     if (!user?.id) {
       showError('يجب تسجيل الدخول أولاً');
@@ -542,24 +541,39 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       setMovements(prev => [...prev, newMovement]);
       await updateProductQuantities(newMovement, false);
 
-      // إنشاء إشعار الحركة
-      const warehouseName = warehouses.find(w => w.id === newMovement.warehouse_id)?.name || 'مخزن';
-      const entityName = newMovement.entity_type === 'supplier'
-        ? suppliers.find(s => s.id === newMovement.entity_id)?.name || 'مورد'
-        : clients.find(c => c.id === newMovement.entity_id)?.name || 'عميل';
-      const userName = displayName || 'مستخدم';
-
+      // ========== إنشاء الإشعارات ==========
       try {
+        const warehouseName = warehouses.find(w => w.id === newMovement.warehouse_id)?.name || 'مخزن';
+        const entityName = newMovement.entity_type === 'supplier'
+          ? suppliers.find(s => s.id === newMovement.entity_id)?.name || 'مورد'
+          : clients.find(c => c.id === newMovement.entity_id)?.name || 'عميل';
+        const userName = displayName || 'مستخدم';
+
         if (newMovement.product_id && newMovement.quantity !== undefined) {
           const productName = products.find(p => p.id === newMovement.product_id)?.name || 'منتج';
+          
+          // ✅ استخدم الكمية والوحدة المدخلة من المستخدم (display)
+          const displayQty = newMovement.display_quantity ?? newMovement.quantity;
+          const displayUnitId = newMovement.display_unit_id ?? newMovement.unit_id;
+          
+          // ✅ احصل على اسم الوحدة المعروضة
+          let displayUnitName = 'قطعة';
+          if (displayUnitId) {
+            const foundUnit = units.find(u => u.id === displayUnitId);
+            displayUnitName = foundUnit?.name || 'قطعة';
+          } else if (newMovement.unit) {
+            displayUnitName = newMovement.unit;
+          }
+
           const notif = getMovementNotification(newMovement.type, {
             productName,
-            quantity: newMovement.quantity,
-            unit: newMovement.unit || 'قطعة',
+            quantity: displayQty,
+            unit: displayUnitName,
             warehouseName,
             userName,
             entityName,
           });
+
           await supabase.from('notifications').insert({
             type: newMovement.type === 'in' ? 'movement_in' : 'movement_out',
             title: notif.title,
@@ -568,6 +582,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
             created_by: user.id,
           });
 
+          // إشعار المخزون المنخفض
           const updatedProduct = products.find(p => p.id === newMovement.product_id);
           if (updatedProduct) {
             const newQty = newMovement.type === 'out'
@@ -607,9 +622,10 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch (e) {
         console.error('Error creating notification:', e);
+        // لا نعرض خطأ للمستخدم
       }
     }
-  }, [user, updateProductQuantities, warehouses, suppliers, clients, products, displayName]);
+  }, [user, updateProductQuantities, warehouses, suppliers, clients, products, displayName, units]);
 
   const updateMovement = useCallback(async (m: StockMovement) => {
     const old = movements.find(x => x.id === m.id);
