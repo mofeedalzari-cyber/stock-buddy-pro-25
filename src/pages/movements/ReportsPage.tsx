@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (محدث)
+// ملف: src/pages/movements/ReportsPage.tsx (محدث - دعم الوحدات)
 // ============================================================================
 import { useState } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -32,9 +32,10 @@ const ReportsPage = () => {
   const {
     products, categories, warehouses, suppliers, clients, movements,
     getCategoryName, getWarehouseName, getProductName, getSupplierName, getClientName,
+    getUnitName,            // ✅ دالة للحصول على اسم الوحدة من id
     refreshAll,
   } = useWarehouse();
-  const { displayName } = useAuth(); // اسم المستخدم الحالي
+  const { displayName } = useAuth();
 
   const { toast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
@@ -49,10 +50,29 @@ const ReportsPage = () => {
     ? warehouses.find(w => w.id === selectedWarehouse)?.manager || 'غير محدد'
     : 'غير محدد';
 
-  // ========== دوال محسنة تعتمد على الحالة ==========
-  const getDisplayQty = (productId: string) => {
-    if (selectedWarehouse) return getWarehouseQty(movements, productId, selectedWarehouse);
-    return getProductTotalQty(movements, productId);
+  // ========== دوال محسنة لتحويل الكمية إلى الوحدة المعروضة ==========
+  const getDisplayQty = (product: any) => {
+    const totalBaseQty = selectedWarehouse
+      ? getWarehouseQty(movements, product.id, selectedWarehouse)
+      : getProductTotalQty(movements, product.id);
+    
+    // إذا كان للمنتج وحدة معروضة و pack_size > 1
+    if (product.display_unit_id && product.pack_size && product.pack_size > 1) {
+      return totalBaseQty / product.pack_size;
+    }
+    return totalBaseQty;
+  };
+
+  // الكمية المعروضة للحركة (display_quantity) أو الأصلية
+  const getMovementDisplayQty = (movement: any) => {
+    return movement.display_quantity ?? movement.quantity ?? 0;
+  };
+
+  // الوحدة المعروضة للحركة (display_unit_id) أو الأصلية
+  const getMovementDisplayUnit = (movement: any) => {
+    const unitId = movement.display_unit_id ?? movement.unit_id;
+    if (unitId) return getUnitName(unitId);
+    return movement.unit || 'قطعة';
   };
 
   const filteredProducts = selectedWarehouse
@@ -64,8 +84,8 @@ const ReportsPage = () => {
       )
     : products;
 
-  const lowStock = filteredProducts.filter(p => getDisplayQty(p.id) <= 10);
-  const outOfStock = filteredProducts.filter(p => getDisplayQty(p.id) === 0);
+  const lowStock = filteredProducts.filter(p => getDisplayQty(p) <= 10);
+  const outOfStock = filteredProducts.filter(p => getDisplayQty(p) === 0);
 
   const expanded = expandMovements(movements, getProductName);
   const filteredExpanded = expanded
@@ -81,7 +101,15 @@ const ReportsPage = () => {
       if (m.product_id) productIds.add(m.product_id);
       if (m.items) m.items.forEach(i => productIds.add(i.product_id));
     });
-    const totalQty = Array.from(productIds).reduce((sum, pid) => sum + getWarehouseQty(movements, pid, w.id), 0);
+    const totalQty = Array.from(productIds).reduce((sum, pid) => {
+      const product = products.find(p => p.id === pid);
+      const qty = getWarehouseQty(movements, pid, w.id);
+      // تحويل الكمية إلى الوحدة المعروضة إن وجدت
+      if (product?.display_unit_id && product.pack_size && product.pack_size > 1) {
+        return sum + (qty / product.pack_size);
+      }
+      return sum + qty;
+    }, 0);
     return { name: w.name, products: productIds.size, totalQty };
   });
 
@@ -92,11 +120,19 @@ const ReportsPage = () => {
       if (m.product_id) productIds.add(m.product_id);
       if (m.items) m.items.forEach(i => productIds.add(i.product_id));
     });
-    return Array.from(productIds).map(pid => ({
-      warehouseName: w.name,
-      productName: getProductName(pid),
-      quantity: getWarehouseQty(movements, pid, w.id),
-    }));
+    return Array.from(productIds).map(pid => {
+      const product = products.find(p => p.id === pid);
+      const qty = getWarehouseQty(movements, pid, w.id);
+      const displayQty = product?.display_unit_id && product.pack_size && product.pack_size > 1
+        ? qty / product.pack_size
+        : qty;
+      return {
+        warehouseName: w.name,
+        productName: getProductName(pid),
+        quantity: displayQty,
+        unit: product?.display_unit_id ? getUnitName(product.display_unit_id) : (product?.unit || 'قطعة'),
+      };
+    });
   });
 
   const supplierItems = expanded
@@ -116,12 +152,14 @@ const ReportsPage = () => {
     const productIds = new Set<string>();
     sMovements.forEach(m => {
       if (m.product_id) {
-        totalQty += m.quantity;
+        const qty = getMovementDisplayQty(m);
+        totalQty += qty;
         productIds.add(m.product_id);
       }
       if (m.items) {
         m.items.forEach(item => {
-          totalQty += item.quantity;
+          const qty = getMovementDisplayQty(item);
+          totalQty += qty;
           productIds.add(item.product_id);
         });
       }
@@ -144,12 +182,14 @@ const ReportsPage = () => {
     const productIds = new Set<string>();
     cMovements.forEach(m => {
       if (m.product_id) {
-        totalQty += m.quantity;
+        const qty = getMovementDisplayQty(m);
+        totalQty += qty;
         productIds.add(m.product_id);
       }
       if (m.items) {
         m.items.forEach(item => {
-          totalQty += item.quantity;
+          const qty = getMovementDisplayQty(item);
+          totalQty += qty;
           productIds.add(item.product_id);
         });
       }
@@ -178,7 +218,7 @@ const ReportsPage = () => {
     return true;
   };
 
-  // ========== دوال التصدير (تستدعي الدوال من utils) ==========
+  // ========== دوال التصدير (مع الوحدات المعروضة) ==========
   const exportProductsExcel = () => {
     if (!checkWarehouseSelected()) return;
     exportExcel(
@@ -189,7 +229,8 @@ const ReportsPage = () => {
         'الصنف': getCategoryName(p.category_id || ''),
         'المورد': getProductSuppliers(movements, p.id, selectedWarehouse, getSupplierName),
         'جهة الصرف': getProductClients(movements, p.id, selectedWarehouse, getClientName),
-        'الكمية المتبقية': getDisplayQty(p.id),
+        'الكمية المتبقية': getDisplayQty(p),
+        'الوحدة': p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة'),
         'المخزن': getWarehouseName(selectedWarehouse),
       })),
       'المنتجات',
@@ -206,11 +247,12 @@ const ReportsPage = () => {
       getCategoryName(p.category_id || ''),
       getProductSuppliers(movements, p.id, selectedWarehouse, getSupplierName),
       getProductClients(movements, p.id, selectedWarehouse, getClientName),
-      String(getDisplayQty(p.id)),
+      String(getDisplayQty(p)),
+      p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة'),
     ]);
     const html = buildSimplePdfHtml(
       'تقرير المنتجات',
-      ['م', 'المنتج', 'الكود', 'الصنف', 'المورد', 'جهة الصرف', 'الكمية المتبقية'],
+      ['م', 'المنتج', 'الكود', 'الصنف', 'المورد', 'جهة الصرف', 'الكمية المتبقية', 'الوحدة'],
       rows,
       selectedWarehouse,
       getWarehouseName,
@@ -227,8 +269,8 @@ const ReportsPage = () => {
         'التاريخ': m.date,
         'النوع': m.type === 'in' ? 'وارد' : 'صادر',
         'المنتج': m.productName,
-        'الكمية': m.quantity,
-        'الوحدة': m.unit,
+        'الكمية': getMovementDisplayQty(m),
+        'الوحدة': getMovementDisplayUnit(m),
         'المخزن': getWarehouseName(m.warehouse_id),
         'المورد': m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-',
         'جهة الصرف': m.entity_type === 'client' ? getClientName(m.entity_id) : '-',
@@ -246,8 +288,8 @@ const ReportsPage = () => {
       m.date,
       m.type === 'in' ? 'وارد' : 'صادر',
       m.productName,
-      String(m.quantity),
-      m.unit || '-',
+      String(getMovementDisplayQty(m)),
+      getMovementDisplayUnit(m),
       getWarehouseName(m.warehouse_id),
       m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-',
       m.entity_type === 'client' ? getClientName(m.entity_id) : '-',
@@ -271,6 +313,7 @@ const ReportsPage = () => {
         'المنتج': d.productName,
         'المخزن': d.warehouseName,
         'الكمية': d.quantity,
+        'الوحدة': d.unit,
       })),
       'تقرير_المخازن',
       'تقرير_المخازن'
@@ -279,10 +322,10 @@ const ReportsPage = () => {
 
   const exportWarehousesPdf = () => {
     if (!checkWarehouseSelected()) return;
-    const rows = warehouseStockDetails.map(d => [d.productName, d.warehouseName, String(d.quantity)]);
+    const rows = warehouseStockDetails.map(d => [d.productName, d.warehouseName, String(d.quantity), d.unit]);
     const html = buildSimplePdfHtml(
       'تقرير المخازن',
-      ['المنتج', 'المخزن', 'الكمية'],
+      ['المنتج', 'المخزن', 'الكمية', 'الوحدة'],
       rows,
       selectedWarehouse,
       getWarehouseName,
@@ -298,9 +341,10 @@ const ReportsPage = () => {
       lowStock.map(p => ({
         'المنتج': p.name,
         'الكود': p.code,
-        'الكمية': getDisplayQty(p.id),
+        'الكمية': getDisplayQty(p),
+        'الوحدة': p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة'),
         'المخزن': getWarehouseName(selectedWarehouse),
-        'الحالة': getDisplayQty(p.id) === 0 ? 'نفذ' : 'منخفض',
+        'الحالة': getDisplayQty(p) === 0 ? 'نفذ' : 'منخفض',
       })),
       'منخفض المخزون',
       'تقرير_المخزون_المنخفض'
@@ -313,13 +357,14 @@ const ReportsPage = () => {
       String(i + 1),
       p.name,
       p.code,
-      String(getDisplayQty(p.id)),
+      String(getDisplayQty(p)),
+      p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة'),
       getWarehouseName(selectedWarehouse),
-      getDisplayQty(p.id) === 0 ? 'نفذ' : 'منخفض',
+      getDisplayQty(p) === 0 ? 'نفذ' : 'منخفض',
     ]);
     const html = buildSimplePdfHtml(
       'تقرير المنتجات منخفضة المخزون',
-      ['م', 'المنتج', 'الكود', 'الكمية', 'المخزن', 'الحالة'],
+      ['م', 'المنتج', 'الكود', 'الكمية', 'الوحدة', 'المخزن', 'الحالة'],
       rows,
       selectedWarehouse,
       getWarehouseName,
@@ -380,7 +425,8 @@ const ReportsPage = () => {
       getWarehouseName,
       getSupplierName,
       warehouseManager,
-      displayName || '__________'
+      displayName || '__________',
+      getUnitName  // ✅ تمرير دالة getUnitName
     );
     await printPdfFromHtml(html, 'تقرير_الموردين', toast);
   };
@@ -394,7 +440,8 @@ const ReportsPage = () => {
       getWarehouseName,
       getClientName,
       warehouseManager,
-      displayName || '__________'
+      displayName || '__________',
+      getUnitName  // ✅ تمرير دالة getUnitName
     );
     await printPdfFromHtml(html, 'تقرير_جهات_الصرف', toast);
   };
@@ -405,8 +452,8 @@ const ReportsPage = () => {
       String(idx + 1),
       getSupplierName(item.entity_id),
       item.productName,
-      String(item.quantity),
-      item.unit || '-',
+      String(getMovementDisplayQty(item)),
+      getMovementDisplayUnit(item),
       getWarehouseName(item.warehouse_id),
     ]);
     const html = buildSimplePdfHtml(
@@ -427,8 +474,8 @@ const ReportsPage = () => {
       String(idx + 1),
       getClientName(item.entity_id),
       item.productName,
-      String(item.quantity),
-      item.unit || '-',
+      String(getMovementDisplayQty(item)),
+      getMovementDisplayUnit(item),
       getWarehouseName(item.warehouse_id),
       'منصرف',
     ]);
@@ -492,7 +539,7 @@ const ReportsPage = () => {
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {[
               { label: 'إجمالي المنتجات', value: filteredProducts.length },
-              { label: 'إجمالي المخزون', value: filteredProducts.reduce((s, p) => s + getDisplayQty(p.id), 0) },
+              { label: 'إجمالي المخزون', value: filteredProducts.reduce((s, p) => s + getDisplayQty(p), 0) },
               { label: 'الأصناف', value: categories.length },
             ].map((s, i) => (
               <div key={i} className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center">
@@ -537,7 +584,8 @@ const ReportsPage = () => {
                   <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
                   <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
                   <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
-                </tr></thead>
+                  <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                 </tr></thead>
                 <tbody>
                   {filteredProducts.map((p, i) => (
                     <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
@@ -548,12 +596,15 @@ const ReportsPage = () => {
                       <td className="p-2 sm:p-3 text-muted-foreground">{getProductSuppliers(movements, p.id, selectedWarehouse, getSupplierName)}</td>
                       <td className="p-2 sm:p-3 text-muted-foreground">{getProductClients(movements, p.id, selectedWarehouse, getClientName)}</td>
                       <td className="p-2 sm:p-3">
-                        {(() => { const qty = getDisplayQty(p.id); return (
+                        {(() => { const qty = getDisplayQty(p); return (
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                           qty === 0 ? 'bg-destructive/10 text-destructive' :
                           qty <= 10 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
-                        }`}>{qty}</span>
+                        }`}>{qty.toFixed(2)}</span>
                         ); })()}
+                      </td>
+                      <td className="p-2 sm:p-3 text-muted-foreground">
+                        {p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة')}
                       </td>
                     </tr>
                   ))}
@@ -616,7 +667,7 @@ const ReportsPage = () => {
                   <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                   <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
                   <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                </tr></thead>
+                 </tr></thead>
                 <tbody>
                   {filteredExpanded.map((m, i) => (
                     <tr key={m.itemId} className="border-b border-border last:border-0 hover:bg-secondary/30">
@@ -628,8 +679,8 @@ const ReportsPage = () => {
                         }`}>{m.type === 'in' ? 'وارد' : 'صادر'}</span>
                       </td>
                       <td className="p-2 sm:p-3 font-medium">{m.productName}</td>
-                      <td className="p-2 sm:p-3 font-bold">{m.quantity}</td>
-                      <td className="p-2 sm:p-3 text-muted-foreground">{m.unit || '-'}</td>
+                      <td className="p-2 sm:p-3 font-bold">{getMovementDisplayQty(m)}</td>
+                      <td className="p-2 sm:p-3 text-muted-foreground">{getMovementDisplayUnit(m)}</td>
                       <td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(m.warehouse_id)}</td>
                       <td className="p-2 sm:p-3 text-muted-foreground">{m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-'}</td>
                       <td className="p-2 sm:p-3 text-muted-foreground">{m.entity_type === 'client' ? getClientName(m.entity_id) : '-'}</td>
@@ -675,13 +726,15 @@ const ReportsPage = () => {
                   <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
                   <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                   <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
-                </tr></thead>
+                  <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                 </tr></thead>
                 <tbody>
                   {warehouseStockDetails.map((d, i) => (
                     <tr key={i} className="border-b border-border last:border-0 hover:bg-secondary/30">
                       <td className="p-2 sm:p-3 font-medium">{d.productName}</td>
                       <td className="p-2 sm:p-3">{d.warehouseName}</td>
-                      <td className="p-2 sm:p-3 font-bold">{d.quantity}</td>
+                      <td className="p-2 sm:p-3 font-bold">{d.quantity.toFixed(2)}</td>
+                      <td className="p-2 sm:p-3">{d.unit}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -725,18 +778,20 @@ const ReportsPage = () => {
                   <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
                   <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
                   <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
+                  <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
                   <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                   <th className="text-right p-2 sm:p-3 font-semibold">الحالة</th>
-                </tr></thead>
+                 </tr></thead>
                 <tbody>
                   {lowStock.map((p, i) => {
-                    const qty = getDisplayQty(p.id);
+                    const qty = getDisplayQty(p);
                     return (
                       <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
                         <td className="p-2 sm:p-3">{i + 1}</td>
                         <td className="p-2 sm:p-3 font-medium">{p.name}</td>
                         <td className="p-2 sm:p-3 text-muted-foreground font-mono text-[10px] sm:text-xs">{p.code}</td>
-                        <td className="p-2 sm:p-3 font-bold text-destructive">{qty}</td>
+                        <td className="p-2 sm:p-3 font-bold text-destructive">{qty.toFixed(2)}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة')}</td>
                         <td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(selectedWarehouse)}</td>
                         <td className="p-2 sm:p-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${qty === 0 ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning'}`}>
@@ -785,15 +840,15 @@ const ReportsPage = () => {
                   <th className="text-right p-2 font-semibold">الكمية</th>
                   <th className="text-right p-2 font-semibold">الوحدة</th>
                   <th className="text-right p-2 font-semibold">المخزن</th>
-                </tr></thead>
+                 </tr></thead>
                 <tbody>
                   {supplierItems.map((item, idx) => (
                     <tr key={item.itemId} className="border-b border-border hover:bg-secondary/30">
                       <td className="p-2">{idx + 1}</td>
                       <td className="p-2 font-medium">{getSupplierName(item.entity_id)}</td>
                       <td className="p-2">{item.productName}</td>
-                      <td className="p-2 font-bold">{item.quantity}</td>
-                      <td className="p-2 text-muted-foreground">{item.unit || '-'}</td>
+                      <td className="p-2 font-bold">{getMovementDisplayQty(item)}</td>
+                      <td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td>
                       <td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td>
                     </tr>
                   ))}
@@ -825,15 +880,15 @@ const ReportsPage = () => {
                   <th className="text-right p-2 font-semibold">الوحدة</th>
                   <th className="text-right p-2 font-semibold">المخزن</th>
                   <th className="text-right p-2 font-semibold">النوع</th>
-                </tr></thead>
+                 </tr></thead>
                 <tbody>
                   {clientItems.map((item, idx) => (
                     <tr key={item.itemId} className="border-b border-border hover:bg-secondary/30">
                       <td className="p-2">{idx + 1}</td>
                       <td className="p-2 font-medium">{getClientName(item.entity_id)}</td>
                       <td className="p-2">{item.productName}</td>
-                      <td className="p-2 font-bold">{item.quantity}</td>
-                      <td className="p-2 text-muted-foreground">{item.unit || '-'}</td>
+                      <td className="p-2 font-bold">{getMovementDisplayQty(item)}</td>
+                      <td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td>
                       <td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td>
                       <td className="p-2">
                         <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive">
