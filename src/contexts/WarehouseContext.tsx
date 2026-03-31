@@ -197,7 +197,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       const movementsData = (movRes.data as any[]).map((mov: any) => ({
         ...mov,
         items: mov.items ? (typeof mov.items === 'string' ? JSON.parse(mov.items) : mov.items) : undefined,
-        display_unit_id: mov.display_unit,   // تحويل display_unit إلى display_unit_id
+        display_unit_id: mov.display_unit,
       })) as StockMovement[];
       setMovements(movementsData);
     }
@@ -542,7 +542,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       setMovements(prev => [...prev, newMovement]);
       await updateProductQuantities(newMovement, false);
 
-      // إنشاء إشعار الحركة
+      // ========== إنشاء إشعار الحركة (باستخدام الكمية والوحدة المعروضة) ==========
       const warehouseName = warehouses.find(w => w.id === newMovement.warehouse_id)?.name || 'مخزن';
       const entityName = newMovement.entity_type === 'supplier'
         ? suppliers.find(s => s.id === newMovement.entity_id)?.name || 'مورد'
@@ -552,10 +552,15 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       try {
         if (newMovement.product_id && newMovement.quantity !== undefined) {
           const productName = products.find(p => p.id === newMovement.product_id)?.name || 'منتج';
+          // استخدام الكمية والوحدة المعروضة للإشعار
+          const displayQty = newMovement.display_quantity ?? newMovement.quantity;
+          const displayUnitId = newMovement.display_unit_id ?? newMovement.unit_id;
+          const displayUnitName = displayUnitId ? getUnitName(displayUnitId) : (newMovement.unit || 'قطعة');
+
           const notif = getMovementNotification(newMovement.type, {
             productName,
-            quantity: newMovement.quantity,
-            unit: newMovement.unit || 'قطعة',
+            quantity: displayQty,
+            unit: displayUnitName,
             warehouseName,
             userName,
             entityName,
@@ -568,6 +573,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
             created_by: user.id,
           });
 
+          // إشعار المخزون المنخفض (يتم باستخدام الكمية الأساسية فقط، لأن التحذير يعتمد على الكمية الفعلية)
           const updatedProduct = products.find(p => p.id === newMovement.product_id);
           if (updatedProduct) {
             const newQty = newMovement.type === 'out'
@@ -609,7 +615,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         console.error('Error creating notification:', e);
       }
     }
-  }, [user, updateProductQuantities, warehouses, suppliers, clients, products, displayName]);
+  }, [user, updateProductQuantities, warehouses, suppliers, clients, products, displayName, getUnitName]);
 
   const updateMovement = useCallback(async (m: StockMovement) => {
     const old = movements.find(x => x.id === m.id);
