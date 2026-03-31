@@ -1,35 +1,42 @@
 // ============================================================================
-// ملف: MovementDialogs.tsx (نسخة كاملة - دعم جميع الوحدات مع تحويل مرن)
+// ملف: src/pages/movements/components/MovementDialogs.tsx
+// الإصدار: يدعم الوحدات (base_unit_id، display_unit_id، pack_size) مع التحويل التلقائي
 // ============================================================================
 
 import { useState, useEffect, useMemo } from 'react';
-import { useWarehouse } from '@/contexts/WarehouseContext';
 import { Plus, X, Copy, Pencil, Trash2, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { MovementType, StockMovement, MovementItem } from '@/types/warehouse';
-import { UNITS } from '../utils/movementUtils';
+import { MovementType, StockMovement, MovementItem, Product } from '@/types/warehouse';
 
 export interface MovementDialogsProps {
-  addMovement: any;
-  updateMovement: any;
-  deleteMovement: any;
-  getProductName: any;
-  getWarehouseName: any;
-  getSupplierName: any;
-  getClientName: any;
-  getUserName: any;
-  refreshAll: any;
-  products: any[];
+  // البيانات الأساسية
+  products: Product[];
   warehouses: any[];
   suppliers: any[];
   clients: any[];
-  movements: any[];
-  isAdmin: boolean;
-  toast: any;
+  units: any[];                       // قائمة الوحدات (id, name, ...)
+  getUnitName: (unitId: string) => string; // دالة للحصول على اسم الوحدة
+  
+  // دوال CRUD
+  addMovement: (movement: any) => Promise<void>;
+  updateMovement: (movement: any) => Promise<void>;
+  deleteMovement: (id: string) => Promise<void>;
+  
+  // دوال مساعدة
+  getProductName: (id: string) => string;
+  getWarehouseName: (id: string) => string;
+  getSupplierName: (id: string) => string;
+  getClientName: (id: string) => string;
+  getCurrentStock: (productId: string, warehouseId: string) => number;
+  getProductMinQty: (productId: string) => number;
+  getStockMapForWarehouse: (warehouseId: string) => Map<string, number>;
+  preventDecimal: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  refreshAll: () => Promise<void>;
+  
+  // حالات الحوارات
   addSingleOpen: boolean;
   setAddSingleOpen: (open: boolean) => void;
   addMultiOpen: boolean;
@@ -42,6 +49,8 @@ export interface MovementDialogsProps {
   setDeleteOpen: (open: boolean) => void;
   bulkDeleteOpen: boolean;
   setBulkDeleteOpen: (open: boolean) => void;
+  
+  // الحركات الجاري التعامل معها
   editingMovement: StockMovement | null;
   setEditingMovement: (movement: StockMovement | null) => void;
   duplicateMovement: StockMovement | null;
@@ -50,15 +59,21 @@ export interface MovementDialogsProps {
   setDeletingMovement: (movement: StockMovement | null) => void;
   selectedItems: Set<string>;
   setSelectedItems: (items: Set<string>) => void;
-  validateProductUnit: (productId: string, selectedUnit: string) => boolean;
-  getCurrentStock: (productId: string, warehouseId: string) => number;
-  getProductMinQty: (productId: string) => number;
-  getStockMapForWarehouse: (warehouseId: string) => Map<string, number>;
-  preventDecimal: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  refreshAll: () => Promise<void>;
+  
+  // صلاحيات
+  isAdmin: boolean;
+  
+  // دالة Toast (من useToast)
+  toast: any;
 }
 
 export const MovementDialogs: React.FC<MovementDialogsProps> = ({
+  products,
+  warehouses,
+  suppliers,
+  clients,
+  units,
+  getUnitName,
   addMovement,
   updateMovement,
   deleteMovement,
@@ -66,12 +81,11 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
   getWarehouseName,
   getSupplierName,
   getClientName,
-  products,
-  warehouses,
-  suppliers,
-  clients,
-  isAdmin,
-  toast,
+  getCurrentStock,
+  getProductMinQty,
+  getStockMapForWarehouse,
+  preventDecimal,
+  refreshAll,
   addSingleOpen,
   setAddSingleOpen,
   addMultiOpen,
@@ -92,15 +106,77 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
   setDeletingMovement,
   selectedItems,
   setSelectedItems,
-  validateProductUnit,
-  getCurrentStock,
-  getProductMinQty,
-  getStockMapForWarehouse,
-  preventDecimal,
-  refreshAll,
+  isAdmin,
+  toast,
 }) => {
   const [saving, setSaving] = useState(false);
   const [movementType, setMovementType] = useState<'single' | 'multi'>('single');
+
+  // ========== خريطة معلومات المنتج (base_unit_id, display_unit_id, pack_size) ==========
+  const productInfoMap = useMemo(() => {
+    const map = new Map<string, { base_unit_id: string; display_unit_id: string; pack_size: number }>();
+    products.forEach(p => {
+      if (p.id) {
+        map.set(p.id, {
+          base_unit_id: p.base_unit_id,
+          display_unit_id: p.display_unit_id,
+          pack_size: p.pack_size || 1,
+        });
+      }
+    });
+    return map;
+  }, [products]);
+
+  // ========== دالة الحصول على الوحدات المتاحة للمنتج ==========
+  const getAvailableUnitsForProduct = (productId: string) => {
+    const info = productInfoMap.get(productId);
+    if (!info) return [];
+
+    const unitsList: { id: string; name: string }[] = [];
+    // الوحدة الأساسية
+    unitsList.push({ id: info.base_unit_id, name: getUnitName(info.base_unit_id) });
+    // الوحدة المعروضة إذا كانت موجودة ومختلفة وكان pack_size > 1
+    if (info.display_unit_id && info.display_unit_id !== info.base_unit_id && info.pack_size > 1) {
+      unitsList.push({ id: info.display_unit_id, name: getUnitName(info.display_unit_id) });
+    }
+    return unitsList;
+  };
+
+  // ========== دالة التحقق من صحة الوحدة ==========
+  const validateProductUnitById = (productId: string, selectedUnitId: string) => {
+    const info = productInfoMap.get(productId);
+    if (!info) {
+      toast({ title: 'خطأ', description: 'المنتج غير موجود', variant: 'destructive' });
+      return false;
+    }
+
+    // 1. الوحدة الأساسية مسموحة دائماً
+    if (selectedUnitId === info.base_unit_id) return true;
+
+    // 2. الوحدة المعروضة مسموحة إذا كان pack_size > 1
+    if (selectedUnitId === info.display_unit_id && info.pack_size > 1) return true;
+
+    // غير ذلك ممنوع
+    toast({
+      title: 'خطأ في الوحدة',
+      description: `المنتج "${getProductName(productId)}" لا يدعم الوحدة "${getUnitName(selectedUnitId)}". الوحدات المتاحة: ${getUnitName(info.base_unit_id)}${info.display_unit_id && info.pack_size > 1 ? ` و ${getUnitName(info.display_unit_id)}` : ''}.`,
+      variant: 'destructive'
+    });
+    return false;
+  };
+
+  // ========== دالة تحويل الكمية إلى الوحدة الأساسية ==========
+  const convertToBaseUnit = (productId: string, quantity: number, selectedUnitId: string): number => {
+    const info = productInfoMap.get(productId);
+    if (!info) return quantity;
+
+    // إذا كانت الوحدة المختارة هي الوحدة المعروضة وكان pack_size > 1
+    if (selectedUnitId === info.display_unit_id && info.pack_size > 1) {
+      return quantity * info.pack_size;
+    }
+    // الوحدة الأساسية أو أي حالة أخرى
+    return quantity;
+  };
 
   // ========== نموذج الحركة الواحدة ==========
   const [form, setForm] = useState({
@@ -112,8 +188,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
     entity_type: 'supplier' as 'supplier' | 'client',
     date: new Date().toISOString().split('T')[0],
     notes: '',
-    unit: '',
-    pack_size_override: null as number | null, // لتجاوز pack_size المؤقت
+    unit_id: '',
   });
 
   // ========== نموذج الحركة المتعددة ==========
@@ -126,10 +201,10 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
     notes: ''
   });
   const [items, setItems] = useState<MovementItem[]>([
-    { product_id: '', quantity: null, unit: '', notes: '' }
+    { product_id: '', quantity: null, unit_id: '', notes: '' }
   ]);
 
-  // ========== نموذج التعديل الشامل للحركة المفردة ==========
+  // ========== نموذج التعديل للحركة المفردة ==========
   const [editSingleForm, setEditSingleForm] = useState({
     product_id: '',
     warehouse_id: '',
@@ -139,10 +214,10 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
     entity_type: 'supplier' as 'supplier' | 'client',
     date: '',
     notes: '',
-    unit: ''
+    unit_id: ''
   });
 
-  // ========== نموذج التعديل الشامل للحركة المتعددة ==========
+  // ========== نموذج التعديل للحركة المتعددة ==========
   const [editMultiForm, setEditMultiForm] = useState({
     warehouse_id: '',
     type: 'in' as MovementType,
@@ -164,7 +239,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
     entity_type: 'supplier' as 'supplier' | 'client',
     date: '',
     notes: '',
-    unit: ''
+    unit_id: ''
   });
 
   // ========== نموذج النسخ للحركة المتعددة ==========
@@ -179,18 +254,6 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
   const [duplicateItems, setDuplicateItems] = useState<MovementItem[]>([]);
   const [duplicateType, setDuplicateType] = useState<'single' | 'multi'>('single');
 
-  // ========== تحديث pack_size_override عند اختيار منتج ==========
-  useEffect(() => {
-    if (form.product_id) {
-      const product = products.find(p => p.id === form.product_id);
-      if (product && product.pack_size && product.pack_size > 1) {
-        setForm(prev => ({ ...prev, pack_size_override: product.pack_size }));
-      } else {
-        setForm(prev => ({ ...prev, pack_size_override: null }));
-      }
-    }
-  }, [form.product_id, products]);
-
   // ========== دوال مساعدة للإضافة ==========
   const handleTypeChange = (type: MovementType) => {
     const entity_type = type === 'in' ? 'supplier' : 'client';
@@ -199,7 +262,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
     else setMultiForm({ ...multiForm, type, entity_type, entity_id });
   };
 
-  const addItem = () => setItems([...items, { product_id: '', quantity: null, unit: '', notes: '' }]);
+  const addItem = () => setItems([...items, { product_id: '', quantity: null, unit_id: '', notes: '' }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
   const updateItem = (index: number, field: keyof MovementItem, value: any) => {
     const newItems = [...items];
@@ -213,7 +276,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
   };
 
   // ========== دوال مساعدة للتعديل ==========
-  const addEditItem = () => setEditItems([...editItems, { product_id: '', quantity: null, unit: '', notes: '' }]);
+  const addEditItem = () => setEditItems([...editItems, { product_id: '', quantity: null, unit_id: '', notes: '' }]);
   const removeEditItem = (index: number) => setEditItems(editItems.filter((_, i) => i !== index));
   const updateEditItem = (index: number, field: keyof MovementItem, value: any) => {
     const newItems = [...editItems];
@@ -227,7 +290,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
   };
 
   // ========== دوال مساعدة للنسخ ==========
-  const addDuplicateItem = () => setDuplicateItems([...duplicateItems, { product_id: '', quantity: null, unit: '', notes: '' }]);
+  const addDuplicateItem = () => setDuplicateItems([...duplicateItems, { product_id: '', quantity: null, unit_id: '', notes: '' }]);
   const removeDuplicateItem = (index: number) => setDuplicateItems(duplicateItems.filter((_, i) => i !== index));
   const updateDuplicateItem = (index: number, field: keyof MovementItem, value: any) => {
     const newItems = [...duplicateItems];
@@ -240,129 +303,25 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
     setDuplicateItems(newItems);
   };
 
-  // ========== ✅ دالة التحقق من الوحدة (عامة، تدعم أي وحدة) ==========
-  const validateProductUnitWithConversion = (productId: string, selectedUnit: string, packSize?: number | null) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) {
-      toast({ title: 'خطأ', description: 'المنتج غير موجود', variant: 'destructive' });
-      return false;
+  // ========== عرض معلومات التحويل ==========
+  const getConversionInfo = (productId: string, unitId: string, quantity: number | null) => {
+    if (!productId || !unitId || quantity === null || quantity <= 0) return null;
+    const info = productInfoMap.get(productId);
+    if (!info) return null;
+
+    if (unitId === info.display_unit_id && info.pack_size > 1) {
+      const convertedQty = quantity * info.pack_size;
+      return (
+        <div className="bg-primary/10 rounded-md p-2 text-xs border border-primary/20">
+          <span className="font-semibold">🔄 تحويل تلقائي:</span>{' '}
+          {quantity} {getUnitName(unitId)} = {convertedQty} {getUnitName(info.base_unit_id)}
+          <span className="block text-[10px] text-muted-foreground mt-1">
+            (حجم العبوة: 1 {getUnitName(info.display_unit_id)} = {info.pack_size} {getUnitName(info.base_unit_id)})
+          </span>
+        </div>
+      );
     }
-
-    // إذا كانت الوحدة المختارة هي نفس وحدة المنتج الأساسية، مسموح دائماً
-    if (product.unit === selectedUnit) return true;
-
-    // احصل على pack_size الفعلي (من تجاوز أو من المنتج)
-    const effectivePackSize = packSize ?? product.pack_size;
-    
-    // إذا كان هناك pack_size أكبر من 1، نسمح بالتحويل لأي وحدة مختلفة
-    if (effectivePackSize && effectivePackSize > 1) {
-      return true;
-    }
-
-    // وإلا لا يمكن التحويل
-    toast({
-      title: 'خطأ في الوحدة',
-      description: `المنتج "${product.name}" ليس له حجم عبوة محدد أو حجم العبوة 1. لا يمكن تسجيل حركة بوحدة "${selectedUnit}". الرجاء تحديد حجم العبوة في إعدادات المنتج.`,
-      variant: 'destructive'
-    });
-    return false;
-  };
-
-  // ========== ✅ دالة تحويل الكمية إلى وحدة المنتج الأساسية (عامة) ==========
-  const convertToProductUnit = (product: any, quantity: number, selectedUnit: string, packSizeOverride?: number | null) => {
-    if (!product) return { quantity, unit: selectedUnit };
-    
-    const packSize = packSizeOverride ?? product.pack_size;
-    
-    // إذا لم يوجد pack_size أو كان 1، لا تحويل
-    if (!packSize || packSize <= 1) {
-      return { quantity, unit: selectedUnit };
-    }
-
-    // إذا كانت الوحدة المختارة هي نفس الوحدة الأساسية، لا حاجة للتحويل
-    if (selectedUnit === product.unit) {
-      return { quantity, unit: selectedUnit };
-    }
-
-    // التحويل: نفترض أن 1 من الوحدة المعروضة = packSize من الوحدة الأساسية
-    // مثال: 1 كيس = 50 كيلو (الوحدة الأساسية كيلو، المعروضة كيس)
-    // إذا كان المستخدم أدخل 10 كيلو، فإننا نحتاج لتحويلها إلى 0.2 كيس (quantity / packSize)
-    // ولكن المخزون يحسب بالوحدة الأساسية، لذا نحتاج للعكس؟
-    // هنا نحتاج لفهم: product.unit هي الوحدة الأساسية للمخزون.
-    // المستخدم اختار وحدة مختلفة (selectedUnit). العلاقة: 1 selectedUnit = packSize من product.unit
-    // إذاً quantity من selectedUnit تُحول إلى product.unit كالتالي: quantity * packSize
-    // لكن في مثالنا: 1 كيس = 50 كيلو، فإذا اختار المستخدم كيس وأدخل 2 كيس، يجب أن تصبح 100 كيلو.
-    // وإذا اختار كيلو وأدخل 10 كيلو، نريد تخزين 10 كيلو (لا تحويل لأنها نفس الأساسية).
-    // ولكن إذا كان المستخدم يريد صرف 10 كيلو من منتج وحدته الأساسية كيس، فهذا غير منطقي لأن الأساسية كيس.
-    // لذلك الأفضل أن تكون الوحدة الأساسية هي الأصغر (كيلو، لتر، قطعة) والوحدة المعروضة هي الأكبر (كيس، كرتون).
-    // في هذا السيناريو، product.unit = 'كيلو'، selectedUnit = 'كيس'، packSize = 50.
-    // إذا أدخل 2 كيس، نحتاج تخزين 100 كيلو. أي quantity * packSize.
-    // إذا أدخل 10 كيلو، ونحن نخزن بالكيلو، فلا تحويل (لأن selectedUnit === product.unit).
-    // أما إذا كان المنتج وحدته الأساسية كيس والمستخدم يريد صرف 10 كيلو، فهذا يحتاج تحويل عكسي (quantity / packSize).
-    // لتجنب التعقيد، سنفترض أن pack_size يُعبر عن عدد الوحدات الأساسية في الوحدة المعروضة.
-    // بمعنى: 1 وحدة معروضة = pack_size من الوحدة الأساسية.
-    // إذن:
-    // - إذا اختار المستخدم الوحدة المعروضة، الكمية المخزنة = quantity * pack_size
-    // - إذا اختار المستخدم الوحدة الأساسية، الكمية المخزنة = quantity
-    // - إذا اختار وحدة أخرى غير الأساسية وغير المعروضة، لا نتعامل معها (لن تحدث).
-    
-    // نحدد: هل الوحدة المختارة هي الوحدة المعروضة أم لا؟
-    // لا توجد طريقة مباشرة لمعرفة الوحدة المعروضة من بيانات المنتج (display_unit_id).
-    // لكن يمكننا استخدام قاعدة: إذا كان pack_size > 1 والوحدة المختارة مختلفة عن الأساسية، نعتبرها وحدة معروضة.
-    // وبالتالي التحويل: quantity * pack_size.
-    // هذا صحيح إذا كان المستخدم يختار الكيس (وحدة أكبر) ويريد تحويلها إلى الكيلو.
-    // أما إذا اختار الكيلو (وهو الأساسية) فلا تحويل.
-    // لكن ماذا لو اختار وحدة أكبر من الأساسية ولكن الأساسية هي كيس؟ في هذه الحالة سيكون التحويل quantity / pack_size.
-    // لتبسيط الأمر، سأعتمد على منطق: 
-    // if (product.unit === 'كيلو' && selectedUnit === 'كيس') => quantity * pack_size
-    // if (product.unit === 'كيس' && selectedUnit === 'كيلو') => quantity / pack_size
-    // ولكن هذا غير مرن. الحل الأفضل هو استخدام جدول تحويلات الوحدات (unitConversions) الموجود في السياق.
-    // لكن لعدم توفرها في هذا الملف بسهولة، سأستخدم منطقاً مبسطاً: 
-    // سنحاول التحويل من selectedUnit إلى product.unit باستخدام pack_size فقط بافتراض أن العلاقة خطية.
-    // إذا كان المنتج له base_unit_id و display_unit_id يمكننا استخدامها، لكن حالياً سنفترض أن المستخدم إما يختار الوحدة الأساسية أو الوحدة المعروضة.
-    
-    // الحل الأمثل: استخدام convertQuantity من السياق، لكننا لا نملكها هنا كـ prop.
-    // سأضيف prop جديد للسياق إذا أمكن، لكن لتجنب تغيير الـ interface، سأستخدم منطق افتراضي:
-    // إذا كان product.unit هي الوحدة الأصغر (كيلو، قطعة، لتر) و selectedUnit وحدة أكبر، فالتحويل * pack_size
-    // إذا كان العكس، فالتحويل / pack_size.
-    
-    // قائمة الوحدات الصغرى المفترضة
-    const smallUnits = ['كيلو', 'جرام', 'ملليلتر', 'لتر', 'قطعة', 'علبة'];
-    const isSmallUnit = (unit: string) => smallUnits.includes(unit);
-    
-    if (isSmallUnit(product.unit) && !isSmallUnit(selectedUnit)) {
-      // الوحدة الأساسية صغيرة، والمختارة كبيرة -> نحول إلى الأساسية بضرب الكمية في pack_size
-      return { quantity: quantity * packSize, unit: product.unit };
-    } else if (!isSmallUnit(product.unit) && isSmallUnit(selectedUnit)) {
-      // الوحدة الأساسية كبيرة، والمختارة صغيرة -> نحول إلى الأساسية بقسمة الكمية على pack_size
-      return { quantity: quantity / packSize, unit: product.unit };
-    } else {
-      // غير متأكد، نعيد الكمية كما هي مع تغيير الوحدة إلى الأساسية (تجنباً للأخطاء)
-      return { quantity, unit: product.unit };
-    }
-  };
-
-  // ========== عرض معلومات التحويل للمستخدم ==========
-  const getConversionInfo = () => {
-    if (!form.product_id || !form.unit || form.quantity === null || form.quantity <= 0) return null;
-    const product = products.find(p => p.id === form.product_id);
-    if (!product) return null;
-    const packSize = form.pack_size_override ?? product.pack_size;
-    if (!packSize || packSize <= 1) return null;
-    
-    // حساب الكمية المحولة لعرضها
-    const converted = convertToProductUnit(product, form.quantity, form.unit, packSize);
-    if (converted.unit === form.unit) return null; // لا تحويل
-    
-    return (
-      <div className="bg-primary/10 rounded-md p-2 text-xs border border-primary/20">
-        <span className="font-semibold">🔄 تحويل تلقائي:</span>{' '}
-        {form.quantity} {form.unit} = {converted.quantity.toFixed(2)} {converted.unit}
-        <span className="block text-[10px] text-muted-foreground mt-1">
-          (حجم العبوة: 1 {form.unit} = {packSize} {product.unit})
-        </span>
-      </div>
-    );
+    return null;
   };
 
   // ========== دوال الحفظ ==========
@@ -379,7 +338,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           toast({ title: 'خطأ', description: 'الرجاء اختيار المنتج', variant: 'destructive' });
           return;
         }
-        if (!form.unit) {
+        if (!form.unit_id) {
           toast({ title: 'خطأ', description: 'الرجاء اختيار الوحدة', variant: 'destructive' });
           return;
         }
@@ -393,18 +352,19 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           return;
         }
 
-        // التحقق من الوحدة مع دعم التحويل
-        const packSizeToUse = form.pack_size_override ?? products.find(p => p.id === form.product_id)?.pack_size;
-        if (!validateProductUnitWithConversion(form.product_id, form.unit, packSizeToUse)) return;
+        // التحقق من الوحدة
+        if (!validateProductUnitById(form.product_id, form.unit_id)) return;
 
-        // تحويل الكمية إلى وحدة المنتج الأساسية
-        const product = products.find(p => p.id === form.product_id);
-        const converted = convertToProductUnit(product, form.quantity, form.unit, packSizeToUse);
-        
-        // التحقق من الرصيد
+        const productInfo = productInfoMap.get(form.product_id);
+        if (!productInfo) return;
+
+        // تحويل الكمية إلى الوحدة الأساسية
+        const baseQuantity = convertToBaseUnit(form.product_id, form.quantity, form.unit_id);
+
+        // التحقق من الرصيد للصادرات
         const currentStock = getCurrentStock(form.product_id, form.warehouse_id);
         if (form.type === 'out') {
-          if (currentStock < converted.quantity) {
+          if (currentStock < baseQuantity) {
             toast({
               title: 'خطأ في الكمية',
               description: `الرصيد المتوفر في مخزن (${getWarehouseName(form.warehouse_id)}) هو (${currentStock}) فقط. لا يمكن صرف كمية أكبر.`,
@@ -413,7 +373,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
             return;
           }
           const minQty = getProductMinQty(form.product_id);
-          const newStock = currentStock - converted.quantity;
+          const newStock = currentStock - baseQuantity;
           if (newStock < minQty && minQty > 0) {
             toast({
               title: '⚠️ تحذير: مخزون أقل من الحد الأدنى',
@@ -424,13 +384,13 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           }
         }
 
-        await addMovement({ 
-          ...form, 
-          quantity: converted.quantity, 
-          unit: converted.unit,
-          // نحفظ القيم الأصلية للطباعة
-          display_quantity: form.quantity,
-          display_unit: form.unit
+        // حفظ الحركة
+        await addMovement({
+          ...form,
+          quantity: baseQuantity,
+          unit_id: productInfo.base_unit_id,          // الوحدة الأساسية للمخزون
+          display_quantity: form.quantity,            // الكمية المدخلة للعرض
+          display_unit_id: form.unit_id,              // الوحدة المدخلة للعرض
         });
         const typeMsg = form.type === 'in' ? 'تم توريد للمخزن بنجاح' : 'تم تصدير حركة بنجاح';
         toast({ title: form.type === 'in' ? '✅ توريد' : '📤 تصدير', description: typeMsg });
@@ -450,13 +410,14 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           return;
         }
 
+        // التحقق من جميع الأصناف
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
           if (!item.product_id) {
             toast({ title: 'خطأ', description: `الصنف ${i+1}: الرجاء اختيار منتج`, variant: 'destructive' });
             return;
           }
-          if (!item.unit) {
+          if (!item.unit_id) {
             toast({ title: 'خطأ', description: `الصنف ${i+1}: الرجاء اختيار الوحدة`, variant: 'destructive' });
             return;
           }
@@ -464,19 +425,28 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
             toast({ title: 'خطأ', description: `الصنف ${i+1}: الكمية يجب أن تكون أكبر من صفر`, variant: 'destructive' });
             return;
           }
-          const product = products.find(p => p.id === item.product_id);
-          const packSize = product?.pack_size;
-          if (!validateProductUnitWithConversion(item.product_id, item.unit, packSize)) return;
+          if (!validateProductUnitById(item.product_id, item.unit_id)) return;
         }
 
+        // تحويل الأصناف
+        const itemsToSave = items.map(item => {
+          const baseQuantity = convertToBaseUnit(item.product_id, item.quantity, item.unit_id);
+          const productInfo = productInfoMap.get(item.product_id);
+          return {
+            ...item,
+            quantity: baseQuantity,
+            unit_id: productInfo?.base_unit_id,
+            display_quantity: item.quantity,
+            display_unit_id: item.unit_id,
+          };
+        });
+
+        // التحقق من الرصيد للصادرات
         if (multiForm.type === 'out') {
           const stockMap = getStockMapForWarehouse(multiForm.warehouse_id);
-          for (const item of items) {
-            const product = products.find(p => p.id === item.product_id);
-            const packSize = product?.pack_size;
-            const converted = convertToProductUnit(product, item.quantity, item.unit, packSize);
+          for (const item of itemsToSave) {
             const currentStock = stockMap.get(item.product_id) || 0;
-            if (currentStock < converted.quantity) {
+            if (currentStock < item.quantity) {
               toast({
                 title: 'خطأ في الكمية',
                 description: `المنتج ${getProductName(item.product_id)}: الرصيد المتوفر في المخزن هو ${currentStock} فقط.`,
@@ -485,7 +455,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
               return;
             }
             const minQty = getProductMinQty(item.product_id);
-            const newStock = currentStock - converted.quantity;
+            const newStock = currentStock - item.quantity;
             if (newStock < minQty && minQty > 0) {
               toast({
                 title: '⚠️ تحذير: مخزون أقل من الحد الأدنى',
@@ -496,19 +466,6 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           }
         }
 
-        const itemsToSave = items.map(item => {
-          const product = products.find(p => p.id === item.product_id);
-          const packSize = product?.pack_size;
-          const converted = convertToProductUnit(product, item.quantity, item.unit, packSize);
-          return { 
-            ...item, 
-            quantity: converted.quantity, 
-            unit: converted.unit,
-            display_quantity: item.quantity,
-            display_unit: item.unit
-          };
-        });
-        
         await addMovement({
           type: multiForm.type,
           warehouse_id: multiForm.warehouse_id,
@@ -545,7 +502,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           toast({ title: 'خطأ', description: 'الرجاء اختيار المنتج', variant: 'destructive' });
           return;
         }
-        if (!editSingleForm.unit) {
+        if (!editSingleForm.unit_id) {
           toast({ title: 'خطأ', description: 'الرجاء اختيار الوحدة', variant: 'destructive' });
           return;
         }
@@ -559,19 +516,20 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           return;
         }
         
-        const product = products.find(p => p.id === editSingleForm.product_id);
-        const packSize = product?.pack_size;
-        if (!validateProductUnitWithConversion(editSingleForm.product_id, editSingleForm.unit, packSize)) return;
+        if (!validateProductUnitById(editSingleForm.product_id, editSingleForm.unit_id)) return;
         
-        const converted = convertToProductUnit(product, editSingleForm.quantity, editSingleForm.unit, packSize);
+        const productInfo = productInfoMap.get(editSingleForm.product_id);
+        if (!productInfo) return;
+        
+        const baseQuantity = convertToBaseUnit(editSingleForm.product_id, editSingleForm.quantity, editSingleForm.unit_id);
         
         await updateMovement({
           ...editingMovement,
           ...editSingleForm,
-          quantity: converted.quantity,
-          unit: converted.unit,
+          quantity: baseQuantity,
+          unit_id: productInfo.base_unit_id,
           display_quantity: editSingleForm.quantity,
-          display_unit: editSingleForm.unit
+          display_unit_id: editSingleForm.unit_id
         });
         toast({ title: 'تم التعديل', description: 'تم تعديل الحركة بنجاح' });
       } else {
@@ -596,7 +554,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
             toast({ title: 'خطأ', description: `الصنف ${i+1}: الرجاء اختيار منتج`, variant: 'destructive' });
             return;
           }
-          if (!item.unit) {
+          if (!item.unit_id) {
             toast({ title: 'خطأ', description: `الصنف ${i+1}: الرجاء اختيار الوحدة`, variant: 'destructive' });
             return;
           }
@@ -604,21 +562,18 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
             toast({ title: 'خطأ', description: `الصنف ${i+1}: الكمية يجب أن تكون أكبر من صفر`, variant: 'destructive' });
             return;
           }
-          const product = products.find(p => p.id === item.product_id);
-          const packSize = product?.pack_size;
-          if (!validateProductUnitWithConversion(item.product_id, item.unit, packSize)) return;
+          if (!validateProductUnitById(item.product_id, item.unit_id)) return;
         }
         
         const itemsToSave = editItems.map(item => {
-          const product = products.find(p => p.id === item.product_id);
-          const packSize = product?.pack_size;
-          const converted = convertToProductUnit(product, item.quantity, item.unit, packSize);
-          return { 
-            ...item, 
-            quantity: converted.quantity, 
-            unit: converted.unit,
+          const baseQuantity = convertToBaseUnit(item.product_id, item.quantity, item.unit_id);
+          const productInfo = productInfoMap.get(item.product_id);
+          return {
+            ...item,
+            quantity: baseQuantity,
+            unit_id: productInfo?.base_unit_id,
             display_quantity: item.quantity,
-            display_unit: item.unit
+            display_unit_id: item.unit_id,
           };
         });
         
@@ -657,7 +612,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           toast({ title: 'خطأ', description: 'الرجاء اختيار المنتج', variant: 'destructive' });
           return;
         }
-        if (!duplicateSingleForm.unit) {
+        if (!duplicateSingleForm.unit_id) {
           toast({ title: 'خطأ', description: 'الرجاء اختيار الوحدة', variant: 'destructive' });
           return;
         }
@@ -671,11 +626,12 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           return;
         }
         
-        const product = products.find(p => p.id === duplicateSingleForm.product_id);
-        const packSize = product?.pack_size;
-        if (!validateProductUnitWithConversion(duplicateSingleForm.product_id, duplicateSingleForm.unit, packSize)) return;
+        if (!validateProductUnitById(duplicateSingleForm.product_id, duplicateSingleForm.unit_id)) return;
         
-        const converted = convertToProductUnit(product, duplicateSingleForm.quantity, duplicateSingleForm.unit, packSize);
+        const productInfo = productInfoMap.get(duplicateSingleForm.product_id);
+        if (!productInfo) return;
+        
+        const baseQuantity = convertToBaseUnit(duplicateSingleForm.product_id, duplicateSingleForm.quantity, duplicateSingleForm.unit_id);
         
         newMovement = {
           warehouse_id: duplicateSingleForm.warehouse_id,
@@ -685,10 +641,10 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           date: duplicateSingleForm.date,
           notes: duplicateSingleForm.notes,
           product_id: duplicateSingleForm.product_id,
-          quantity: converted.quantity,
-          unit: converted.unit,
+          quantity: baseQuantity,
+          unit_id: productInfo.base_unit_id,
           display_quantity: duplicateSingleForm.quantity,
-          display_unit: duplicateSingleForm.unit
+          display_unit_id: duplicateSingleForm.unit_id
         };
       } else {
         if (!duplicateMultiForm.warehouse_id) {
@@ -711,7 +667,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
             toast({ title: 'خطأ', description: `الصنف ${i+1}: الرجاء اختيار منتج`, variant: 'destructive' });
             return;
           }
-          if (!item.unit) {
+          if (!item.unit_id) {
             toast({ title: 'خطأ', description: `الصنف ${i+1}: الرجاء اختيار الوحدة`, variant: 'destructive' });
             return;
           }
@@ -719,21 +675,18 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
             toast({ title: 'خطأ', description: `الصنف ${i+1}: الكمية يجب أن تكون أكبر من صفر`, variant: 'destructive' });
             return;
           }
-          const product = products.find(p => p.id === item.product_id);
-          const packSize = product?.pack_size;
-          if (!validateProductUnitWithConversion(item.product_id, item.unit, packSize)) return;
+          if (!validateProductUnitById(item.product_id, item.unit_id)) return;
         }
         
         const itemsToSave = duplicateItems.map(item => {
-          const product = products.find(p => p.id === item.product_id);
-          const packSize = product?.pack_size;
-          const converted = convertToProductUnit(product, item.quantity, item.unit, packSize);
-          return { 
-            ...item, 
-            quantity: converted.quantity, 
-            unit: converted.unit,
+          const baseQuantity = convertToBaseUnit(item.product_id, item.quantity, item.unit_id);
+          const productInfo = productInfoMap.get(item.product_id);
+          return {
+            ...item,
+            quantity: baseQuantity,
+            unit_id: productInfo?.base_unit_id,
             display_quantity: item.quantity,
-            display_unit: item.unit
+            display_unit_id: item.unit_id,
           };
         });
         
@@ -785,12 +738,12 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           product_id: editingMovement.product_id,
           warehouse_id: editingMovement.warehouse_id,
           type: editingMovement.type,
-          quantity: editingMovement.quantity ?? null,
+          quantity: editingMovement.display_quantity ?? editingMovement.quantity ?? null,
           entity_id: editingMovement.entity_id,
           entity_type: editingMovement.entity_type,
           date: editingMovement.date,
           notes: editingMovement.notes || '',
-          unit: editingMovement.unit || ''
+          unit_id: editingMovement.display_unit_id || editingMovement.unit_id || ''
         });
       } else if (editingMovement.items && editingMovement.items.length > 0) {
         setEditType('multi');
@@ -802,7 +755,11 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           date: editingMovement.date,
           notes: editingMovement.notes || ''
         });
-        setEditItems(editingMovement.items.map(item => ({ ...item })));
+        setEditItems(editingMovement.items.map(item => ({
+          ...item,
+          quantity: item.display_quantity ?? item.quantity,
+          unit_id: item.display_unit_id ?? item.unit_id,
+        })));
       }
     }
   }, [editingMovement, editFullOpen]);
@@ -816,12 +773,12 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           product_id: duplicateMovement.product_id,
           warehouse_id: duplicateMovement.warehouse_id,
           type: duplicateMovement.type,
-          quantity: duplicateMovement.quantity ?? null,
+          quantity: duplicateMovement.display_quantity ?? duplicateMovement.quantity ?? null,
           entity_id: duplicateMovement.entity_id,
           entity_type: duplicateMovement.entity_type,
           date: new Date().toISOString().split('T')[0],
           notes: duplicateMovement.notes || '',
-          unit: duplicateMovement.unit || ''
+          unit_id: duplicateMovement.display_unit_id || duplicateMovement.unit_id || ''
         });
       } else if (duplicateMovement.items && duplicateMovement.items.length > 0) {
         setDuplicateType('multi');
@@ -833,7 +790,11 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
           date: new Date().toISOString().split('T')[0],
           notes: duplicateMovement.notes || ''
         });
-        setDuplicateItems(duplicateMovement.items.map(item => ({ ...item, quantity: item.quantity })));
+        setDuplicateItems(duplicateMovement.items.map(item => ({
+          ...item,
+          quantity: item.display_quantity ?? item.quantity,
+          unit_id: item.display_unit_id ?? item.unit_id,
+        })));
       }
     }
   }, [duplicateMovement, duplicateOpen]);
@@ -904,7 +865,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
               <select
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={form.product_id}
-                onChange={e => setForm({ ...form, product_id: e.target.value })}
+                onChange={e => setForm({ ...form, product_id: e.target.value, unit_id: '' })}
               >
                 <option value="" disabled>اختر المنتج</option>
                 {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -928,36 +889,20 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
                 <Label className="text-xs sm:text-sm">الوحدة <span className="text-destructive">*</span></Label>
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={form.unit}
-                  onChange={e => setForm({ ...form, unit: e.target.value })}
+                  value={form.unit_id}
+                  onChange={e => setForm({ ...form, unit_id: e.target.value })}
+                  disabled={!form.product_id}
                 >
                   <option value="" disabled>اختر الوحدة</option>
-                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                  {getAvailableUnitsForProduct(form.product_id).map(unit => (
+                    <option key={unit.id} value={unit.id}>{unit.name}</option>
+                  ))}
                 </select>
               </div>
             </div>
 
-            {/* حقل حجم العبوة (تجاوز مؤقت) */}
-            {form.product_id && (
-              <div className="space-y-1.5">
-                <Label className="text-xs sm:text-sm">حجم العبوة (تجاوز مؤقت)</Label>
-                <Input
-                  type="number"
-                  placeholder="مثال: 50 (1 كيس = 50 كيلو)"
-                  value={form.pack_size_override === null ? '' : form.pack_size_override}
-                  onChange={e => setForm({ ...form, pack_size_override: e.target.value === '' ? null : Number(e.target.value) })}
-                  min="1"
-                  step="1"
-                  className="text-sm"
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  عدد الوحدات الأساسية في الوحدة المعروضة (اتركه فارغاً لاستخدام القيمة الافتراضية للمنتج)
-                </p>
-              </div>
-            )}
-
-            {/* ✅ عرض معلومات التحويل */}
-            {getConversionInfo()}
+            {/* عرض معلومات التحويل */}
+            {getConversionInfo(form.product_id, form.unit_id, form.quantity)}
 
             {/* ملاحظات عامة */}
             <div className="space-y-1.5">
@@ -976,14 +921,13 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* حوار إضافة حركة متعددة (مختصر - نفس المنطق مع دعم الوحدات) */}
+      {/* حوار إضافة حركة متعددة */}
       <Dialog open={addMultiOpen} onOpenChange={setAddMultiOpen}>
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle>تسجيل حركة متعددة</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 sm:gap-4 mt-2">
-            {/* نفس حقول الحركة المتعددة ولكن مع إمكانية اختيار وحدة لكل صنف */}
             <div className="space-y-1.5">
               <Label>نوع الحركة</Label>
               <div className="flex gap-2">
@@ -1012,32 +956,37 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
 
             <div className="space-y-2">
               <Label>الأصناف</Label>
-              {items.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-end border p-2 rounded-md">
-                  <div className="col-span-4">
-                    <select
-                      className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm"
-                      value={item.product_id}
-                      onChange={e => updateItem(idx, 'product_id', e.target.value)}
-                    >
-                      <option value="">اختر منتج</option>
-                      {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+              {items.map((item, idx) => {
+                const availableUnits = getAvailableUnitsForProduct(item.product_id);
+                return (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-end border p-2 rounded-md">
+                    <div className="col-span-4">
+                      <select
+                        className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm"
+                        value={item.product_id}
+                        onChange={e => updateItem(idx, 'product_id', e.target.value)}
+                      >
+                        <option value="">اختر منتج</option>
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-3">
+                      <Input type="number" placeholder="الكمية" value={item.quantity === null ? '' : item.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)} onKeyDown={preventDecimal} />
+                    </div>
+                    <div className="col-span-3">
+                      <select className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm" value={item.unit_id} onChange={e => updateItem(idx, 'unit_id', e.target.value)} disabled={!item.product_id}>
+                        <option value="">الوحدة</option>
+                        {availableUnits.map(unit => (
+                          <option key={unit.id} value={unit.id}>{unit.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-2 flex justify-end">
+                      <button type="button" onClick={() => removeItem(idx)} className="p-2 text-destructive"><X className="w-4 h-4" /></button>
+                    </div>
                   </div>
-                  <div className="col-span-3">
-                    <Input type="number" placeholder="الكمية" value={item.quantity === null ? '' : item.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)} onKeyDown={preventDecimal} />
-                  </div>
-                  <div className="col-span-3">
-                    <select className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm" value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}>
-                      <option value="">الوحدة</option>
-                      {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                  </div>
-                  <div className="col-span-2 flex justify-end">
-                    <button type="button" onClick={() => removeItem(idx)} className="p-2 text-destructive"><X className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               <Button type="button" variant="outline" onClick={addItem} className="w-full"><Plus className="w-4 h-4 ml-2" />إضافة صنف</Button>
             </div>
 
@@ -1051,8 +1000,118 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* باقي الحوارات (تعديل، نسخ، حذف) - اختصاراً للطول، يمكن إضافتها بنفس المنطق */}
-      {/* يمكنك إضافة حوارات editFullOpen, duplicateOpen, deleteOpen, bulkDeleteOpen بنفس الشكل */}
-    </>
-  );
-};
+      {/* حوار تعديل الحركة */}
+      <Dialog open={editFullOpen} onOpenChange={setEditFullOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تعديل الحركة</DialogTitle>
+          </DialogHeader>
+          {editType === 'single' ? (
+            <div className="grid gap-3 sm:gap-4 mt-2">
+              {/* نوع الحركة */}
+              <div className="space-y-1.5">
+                <Label>نوع الحركة</Label>
+                <div className="flex gap-2">
+                  <button onClick={() => setEditSingleForm({ ...editSingleForm, type: 'in', entity_type: 'supplier', entity_id: '' })} className={`flex-1 py-2 rounded-lg text-sm font-semibold ${editSingleForm.type === 'in' ? 'bg-success text-success-foreground' : 'bg-secondary'}`}>وارد</button>
+                  <button onClick={() => setEditSingleForm({ ...editSingleForm, type: 'out', entity_type: 'client', entity_id: '' })} className={`flex-1 py-2 rounded-lg text-sm font-semibold ${editSingleForm.type === 'out' ? 'bg-destructive text-destructive-foreground' : 'bg-secondary'}`}>صادر</button>
+                </div>
+              </div>
+              {/* المخزن */}
+              <div className="space-y-1.5">
+                <Label>المخزن</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editSingleForm.warehouse_id} onChange={e => setEditSingleForm({ ...editSingleForm, warehouse_id: e.target.value })}>
+                  <option value="">اختر المخزن</option>
+                  {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+              {/* جهة الصرف */}
+              <div className="space-y-1.5">
+                <Label>{editSingleForm.type === 'in' ? 'المورد' : 'جهة الصرف'}</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editSingleForm.entity_id} onChange={e => setEditSingleForm({ ...editSingleForm, entity_id: e.target.value })}>
+                  <option value="">اختر</option>
+                  {(editSingleForm.type === 'in' ? suppliers : clients).map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
+                </select>
+              </div>
+              {/* التاريخ */}
+              <div className="space-y-1.5">
+                <Label>التاريخ</Label>
+                <Input type="date" value={editSingleForm.date} onChange={e => setEditSingleForm({ ...editSingleForm, date: e.target.value })} />
+              </div>
+              {/* المنتج */}
+              <div className="space-y-1.5">
+                <Label>المنتج</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editSingleForm.product_id} onChange={e => setEditSingleForm({ ...editSingleForm, product_id: e.target.value, unit_id: '' })}>
+                  <option value="">اختر المنتج</option>
+                  {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>الكمية</Label>
+                  <Input type="number" value={editSingleForm.quantity === null ? '' : editSingleForm.quantity} onChange={e => setEditSingleForm({ ...editSingleForm, quantity: e.target.value === '' ? null : Number(e.target.value) })} onKeyDown={preventDecimal} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>الوحدة</Label>
+                  <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editSingleForm.unit_id} onChange={e => setEditSingleForm({ ...editSingleForm, unit_id: e.target.value })} disabled={!editSingleForm.product_id}>
+                    <option value="">اختر الوحدة</option>
+                    {getAvailableUnitsForProduct(editSingleForm.product_id).map(unit => (
+                      <option key={unit.id} value={unit.id}>{unit.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {/* ملاحظات */}
+              <div className="space-y-1.5">
+                <Label>ملاحظات</Label>
+                <Input value={editSingleForm.notes} onChange={e => setEditSingleForm({ ...editSingleForm, notes: e.target.value })} />
+              </div>
+              <Button onClick={handleEditSave} disabled={saving}>حفظ التعديلات</Button>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:gap-4 mt-2">
+              {/* نوع الحركة */}
+              <div className="space-y-1.5">
+                <Label>نوع الحركة</Label>
+                <div className="flex gap-2">
+                  <button onClick={() => setEditMultiForm({ ...editMultiForm, type: 'in', entity_type: 'supplier', entity_id: '' })} className={`flex-1 py-2 rounded-lg text-sm font-semibold ${editMultiForm.type === 'in' ? 'bg-success text-success-foreground' : 'bg-secondary'}`}>وارد</button>
+                  <button onClick={() => setEditMultiForm({ ...editMultiForm, type: 'out', entity_type: 'client', entity_id: '' })} className={`flex-1 py-2 rounded-lg text-sm font-semibold ${editMultiForm.type === 'out' ? 'bg-destructive text-destructive-foreground' : 'bg-secondary'}`}>صادر</button>
+                </div>
+              </div>
+              {/* المخزن */}
+              <div className="space-y-1.5">
+                <Label>المخزن</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editMultiForm.warehouse_id} onChange={e => setEditMultiForm({ ...editMultiForm, warehouse_id: e.target.value })}>
+                  <option value="">اختر المخزن</option>
+                  {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+              {/* جهة الصرف */}
+              <div className="space-y-1.5">
+                <Label>{editMultiForm.type === 'in' ? 'المورد' : 'جهة الصرف'}</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editMultiForm.entity_id} onChange={e => setEditMultiForm({ ...editMultiForm, entity_id: e.target.value })}>
+                  <option value="">اختر</option>
+                  {(editMultiForm.type === 'in' ? suppliers : clients).map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
+                </select>
+              </div>
+              {/* التاريخ */}
+              <div className="space-y-1.5">
+                <Label>التاريخ</Label>
+                <Input type="date" value={editMultiForm.date} onChange={e => setEditMultiForm({ ...editMultiForm, date: e.target.value })} />
+              </div>
+              {/* الأصناف */}
+              <div className="space-y-2">
+                <Label>الأصناف</Label>
+                {editItems.map((item, idx) => {
+                  const availableUnits = getAvailableUnitsForProduct(item.product_id);
+                  return (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-end border p-2 rounded-md">
+                      <div className="col-span-4">
+                        <select className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm" value={item.product_id} onChange={e => updateEditItem(idx, 'product_id', e.target.value)}>
+                          <option value="">اختر منتج</option>
+                          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-span-3">
+                        <Input type="number" placeholder="الكمية" value={item.quantity === null ? '' : item.quantity} onChange={e => updateEditItem(idx, 'quantity', e.target.value)} onKeyDown={preventDecimal} />
+                      </div>
+                      <div classNa
