@@ -1114,4 +1114,190 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
                       <div className="col-span-3">
                         <Input type="number" placeholder="الكمية" value={item.quantity === null ? '' : item.quantity} onChange={e => updateEditItem(idx, 'quantity', e.target.value)} onKeyDown={preventDecimal} />
                       </div>
-                      <div classNa
+                      <div className="col-span-3">
+                        <select className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm" value={item.unit_id} onChange={e => updateEditItem(idx, 'unit_id', e.target.value)} disabled={!item.product_id}>
+                          <option value="">الوحدة</option>
+                          {availableUnits.map(unit => (
+                            <option key={unit.id} value={unit.id}>{unit.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-span-2 flex justify-end">
+                        <button type="button" onClick={() => removeEditItem(idx)} className="p-2 text-destructive"><X className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <Button type="button" variant="outline" onClick={addEditItem} className="w-full"><Plus className="w-4 h-4 ml-2" />إضافة صنف</Button>
+              </div>
+              {/* ملاحظات عامة */}
+              <div className="space-y-1.5">
+                <Label>ملاحظات عامة</Label>
+                <Input value={editMultiForm.notes} onChange={e => setEditMultiForm({ ...editMultiForm, notes: e.target.value })} />
+              </div>
+              <Button onClick={handleEditSave} disabled={saving}>حفظ التعديلات</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* حوار نسخ الحركة */}
+      <Dialog open={duplicateOpen} onOpenChange={setDuplicateOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>نسخ الحركة</DialogTitle>
+          </DialogHeader>
+          {duplicateType === 'single' ? (
+            <div className="grid gap-3 sm:gap-4 mt-2">
+              {/* حقول نسخ الحركة المفردة (مشابهة للتعديل) */}
+              <div className="space-y-1.5">
+                <Label>نوع الحركة</Label>
+                <div className="flex gap-2">
+                  <button onClick={() => setDuplicateSingleForm({ ...duplicateSingleForm, type: 'in', entity_type: 'supplier', entity_id: '' })} className={`flex-1 py-2 rounded-lg text-sm font-semibold ${duplicateSingleForm.type === 'in' ? 'bg-success text-success-foreground' : 'bg-secondary'}`}>وارد</button>
+                  <button onClick={() => setDuplicateSingleForm({ ...duplicateSingleForm, type: 'out', entity_type: 'client', entity_id: '' })} className={`flex-1 py-2 rounded-lg text-sm font-semibold ${duplicateSingleForm.type === 'out' ? 'bg-destructive text-destructive-foreground' : 'bg-secondary'}`}>صادر</button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>المخزن</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={duplicateSingleForm.warehouse_id} onChange={e => setDuplicateSingleForm({ ...duplicateSingleForm, warehouse_id: e.target.value })}>
+                  <option value="">اختر المخزن</option>
+                  {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>{duplicateSingleForm.type === 'in' ? 'المورد' : 'جهة الصرف'}</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={duplicateSingleForm.entity_id} onChange={e => setDuplicateSingleForm({ ...duplicateSingleForm, entity_id: e.target.value })}>
+                  <option value="">اختر</option>
+                  {(duplicateSingleForm.type === 'in' ? suppliers : clients).map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>التاريخ</Label>
+                <Input type="date" value={duplicateSingleForm.date} onChange={e => setDuplicateSingleForm({ ...duplicateSingleForm, date: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>المنتج</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={duplicateSingleForm.product_id} onChange={e => setDuplicateSingleForm({ ...duplicateSingleForm, product_id: e.target.value, unit_id: '' })}>
+                  <option value="">اختر المنتج</option>
+                  {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>الكمية</Label>
+                  <Input type="number" value={duplicateSingleForm.quantity === null ? '' : duplicateSingleForm.quantity} onChange={e => setDuplicateSingleForm({ ...duplicateSingleForm, quantity: e.target.value === '' ? null : Number(e.target.value) })} onKeyDown={preventDecimal} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>الوحدة</Label>
+                  <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={duplicateSingleForm.unit_id} onChange={e => setDuplicateSingleForm({ ...duplicateSingleForm, unit_id: e.target.value })} disabled={!duplicateSingleForm.product_id}>
+                    <option value="">اختر الوحدة</option>
+                    {getAvailableUnitsForProduct(duplicateSingleForm.product_id).map(unit => (
+                      <option key={unit.id} value={unit.id}>{unit.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>ملاحظات</Label>
+                <Input value={duplicateSingleForm.notes} onChange={e => setDuplicateSingleForm({ ...duplicateSingleForm, notes: e.target.value })} />
+              </div>
+              <Button onClick={handleDuplicateSave} disabled={saving}>نسخ الحركة</Button>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:gap-4 mt-2">
+              <div className="space-y-1.5">
+                <Label>نوع الحركة</Label>
+                <div className="flex gap-2">
+                  <button onClick={() => setDuplicateMultiForm({ ...duplicateMultiForm, type: 'in', entity_type: 'supplier', entity_id: '' })} className={`flex-1 py-2 rounded-lg text-sm font-semibold ${duplicateMultiForm.type === 'in' ? 'bg-success text-success-foreground' : 'bg-secondary'}`}>وارد</button>
+                  <button onClick={() => setDuplicateMultiForm({ ...duplicateMultiForm, type: 'out', entity_type: 'client', entity_id: '' })} className={`flex-1 py-2 rounded-lg text-sm font-semibold ${duplicateMultiForm.type === 'out' ? 'bg-destructive text-destructive-foreground' : 'bg-secondary'}`}>صادر</button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>المخزن</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={duplicateMultiForm.warehouse_id} onChange={e => setDuplicateMultiForm({ ...duplicateMultiForm, warehouse_id: e.target.value })}>
+                  <option value="">اختر المخزن</option>
+                  {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>{duplicateMultiForm.type === 'in' ? 'المورد' : 'جهة الصرف'}</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={duplicateMultiForm.entity_id} onChange={e => setDuplicateMultiForm({ ...duplicateMultiForm, entity_id: e.target.value })}>
+                  <option value="">اختر</option>
+                  {(duplicateMultiForm.type === 'in' ? suppliers : clients).map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>التاريخ</Label>
+                <Input type="date" value={duplicateMultiForm.date} onChange={e => setDuplicateMultiForm({ ...duplicateMultiForm, date: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>الأصناف</Label>
+                {duplicateItems.map((item, idx) => {
+                  const availableUnits = getAvailableUnitsForProduct(item.product_id);
+                  return (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-end border p-2 rounded-md">
+                      <div className="col-span-4">
+                        <select className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm" value={item.product_id} onChange={e => updateDuplicateItem(idx, 'product_id', e.target.value)}>
+                          <option value="">اختر منتج</option>
+                          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-span-3">
+                        <Input type="number" placeholder="الكمية" value={item.quantity === null ? '' : item.quantity} onChange={e => updateDuplicateItem(idx, 'quantity', e.target.value)} onKeyDown={preventDecimal} />
+                      </div>
+                      <div className="col-span-3">
+                        <select className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm" value={item.unit_id} onChange={e => updateDuplicateItem(idx, 'unit_id', e.target.value)} disabled={!item.product_id}>
+                          <option value="">الوحدة</option>
+                          {availableUnits.map(unit => (
+                            <option key={unit.id} value={unit.id}>{unit.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-span-2 flex justify-end">
+                        <button type="button" onClick={() => removeDuplicateItem(idx)} className="p-2 text-destructive"><X className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <Button type="button" variant="outline" onClick={addDuplicateItem} className="w-full"><Plus className="w-4 h-4 ml-2" />إضافة صنف</Button>
+              </div>
+              <div className="space-y-1.5">
+                <Label>ملاحظات عامة</Label>
+                <Input value={duplicateMultiForm.notes} onChange={e => setDuplicateMultiForm({ ...duplicateMultiForm, notes: e.target.value })} />
+              </div>
+              <Button onClick={handleDuplicateSave} disabled={saving}>نسخ الحركة</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* حوار تأكيد الحذف */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تأكيد الحذف</DialogTitle>
+          </DialogHeader>
+          <p>هل أنت متأكد من حذف هذه الحركة؟ سيتم تحديث الرصيد تلقائياً.</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>إلغاء</Button>
+            <Button variant="destructive" onClick={handleDelete}>حذف</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* حوار حذف متعدد */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تأكيد الحذف المتعدد</DialogTitle>
+          </DialogHeader>
+          <p>هل أنت متأكد من حذف {selectedItems.size} حركة؟ لا يمكن التراجع عن هذا الإجراء.</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setBulkDeleteOpen(false)}>إلغاء</Button>
+            <Button variant="destructive" onClick={handleBulkDelete}>حذف الكل</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
