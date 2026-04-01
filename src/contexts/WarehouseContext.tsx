@@ -247,7 +247,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, () => {
-        supabase.from('units').select('*').then(r => { if (r.data) setUnits(r.data as Unit[]); });
+        (supabase as any).from('units').select('*').then((r: any) => { if (r.data) setUnits(r.data as unknown as Unit[]); });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'unit_conversions' }, () => {
         supabase.from('unit_conversions').select('*').then(r => { if (r.data) setUnitConversions(r.data as UnitConversion[]); });
