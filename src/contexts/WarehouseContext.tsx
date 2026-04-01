@@ -18,7 +18,7 @@ export type MovementType = 'in' | 'out';
 export interface MovementItem {
   product_id: string;
   quantity: number | null;
-  unit: string;
+  unit?: string;
   notes?: string;
   unit_id?: string;
   display_quantity?: number | null;
@@ -34,7 +34,7 @@ export interface StockMovement {
   date: string;
   notes?: string;
   created_at: string;
-  created_by: string;
+  created_by?: string | null;
   product_id?: string | null;
   quantity?: number | null;
   unit?: string | null;
@@ -54,13 +54,13 @@ export interface Product {
   warehouse_id?: string | null;
   description?: string;
   image?: string;
-  unit: string;
+  unit?: string;
   min_quantity?: number;
   pack_size?: number;
   base_unit_id?: string | null;
   display_unit_id?: string | null;
   created_at: string;
-  created_by: string;
+  created_by?: string | null;
 }
 
 export interface Category {
@@ -68,7 +68,7 @@ export interface Category {
   name: string;
   description?: string;
   created_at: string;
-  created_by: string;
+  created_by?: string | null;
 }
 
 export interface Warehouse {
@@ -79,7 +79,7 @@ export interface Warehouse {
   manager?: string;
   notes?: string;
   created_at: string;
-  created_by: string;
+  created_by?: string | null;
 }
 
 export interface Supplier {
@@ -90,7 +90,7 @@ export interface Supplier {
   address?: string;
   notes?: string;
   created_at: string;
-  created_by: string;
+  created_by?: string | null;
 }
 
 export interface Client {
@@ -100,7 +100,7 @@ export interface Client {
   address?: string;
   notes?: string;
   created_at: string;
-  created_by: string;
+  created_by?: string | null;
 }
 
 export interface Unit {
@@ -184,14 +184,14 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       supabase.from('products').select('*'),
       supabase.from('stock_movements').select('*'),
       supabase.from('profiles').select('user_id, display_name'),
-      supabase.from('units').select('*'),
-      supabase.from('unit_conversions').select('*'),
+      (supabase as any).from('units').select('*'),
+      (supabase as any).from('unit_conversions').select('*'),
     ]);
-    if (catRes.data) setCategories(catRes.data as Category[]);
-    if (whRes.data) setWarehouses(whRes.data as Warehouse[]);
-    if (supRes.data) setSuppliers(supRes.data as Supplier[]);
-    if (clRes.data) setClients(clRes.data as Client[]);
-    if (prodRes.data) setProducts(prodRes.data as Product[]);
+    if (catRes.data) setCategories(catRes.data as unknown as Category[]);
+    if (whRes.data) setWarehouses(whRes.data as unknown as Warehouse[]);
+    if (supRes.data) setSuppliers(supRes.data as unknown as Supplier[]);
+    if (clRes.data) setClients(clRes.data as unknown as Client[]);
+    if (prodRes.data) setProducts(prodRes.data as unknown as Product[]);
     if (movRes.data) {
       const movementsData = (movRes.data as any[]).map((mov: any) => ({
         ...mov,
@@ -205,8 +205,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       (profRes.data as any[]).forEach((p: any) => { map[p.user_id] = p.display_name; });
       setProfiles(map);
     }
-    if (unitsRes.data) setUnits(unitsRes.data as Unit[]);
-    if (convRes.data) setUnitConversions(convRes.data as UnitConversion[]);
+    if (unitsRes.data) setUnits(unitsRes.data as unknown as Unit[]);
+    if (convRes.data) setUnitConversions(convRes.data as unknown as UnitConversion[]);
     setLoading(false);
   }, []);
 
@@ -232,7 +232,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         supabase.from('clients').select('*').then(r => { if (r.data) setClients(r.data as Client[]); });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-        supabase.from('products').select('*').then(r => { if (r.data) setProducts(r.data as Product[]); });
+        supabase.from('products').select('*').then(r => { if (r.data) setProducts(r.data as unknown as Product[]); });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => {
         supabase.from('stock_movements').select('*').then(r => {
@@ -247,10 +247,10 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, () => {
-        supabase.from('units').select('*').then(r => { if (r.data) setUnits(r.data as Unit[]); });
+        (supabase as any).from('units').select('*').then((r: any) => { if (r.data) setUnits(r.data as unknown as Unit[]); });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'unit_conversions' }, () => {
-        supabase.from('unit_conversions').select('*').then(r => { if (r.data) setUnitConversions(r.data as UnitConversion[]); });
+        (supabase as any).from('unit_conversions').select('*').then((r: any) => { if (r.data) setUnitConversions(r.data as unknown as UnitConversion[]); });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -283,7 +283,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     if (data) {
-      setProducts(prev => [...prev, data as Product]);
+      setProducts(prev => [...prev, data as unknown as Product]);
     }
   }, [user]);
 

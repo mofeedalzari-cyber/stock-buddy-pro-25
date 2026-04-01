@@ -6,18 +6,18 @@ export interface Product {
   id: string;
   name: string;
   code: string;
-  barcode: string;
-  category_id: string | null;
-  quantity: number;               // المخزون بالوحدة الأساسية
+  barcode?: string;
+  category_id?: string | null;
+  quantity: number;
   min_quantity?: number;
-  warehouse_id: string | null;
-  description: string;
-  unit?: string;                  // الوحدة المعروضة (للخلفية)
-  base_unit_id?: string;          // معرف الوحدة الأساسية
-  display_unit_id?: string;       // معرف الوحدة المعروضة
-  pack_size?: number;             // معامل التحويل (1 display_unit = pack_size base_unit)
+  warehouse_id?: string | null;
+  description?: string;
+  unit?: string;
+  base_unit_id?: string | null;
+  display_unit_id?: string | null;
+  pack_size?: number;
   image?: string;
-  created_by: string | null;
+  created_by?: string | null;
   created_at: string;
 }
 
@@ -25,39 +25,39 @@ export interface Category {
   id: string;
   name: string;
   description?: string;
-  created_by: string | null;
+  created_by?: string | null;
   created_at: string;
 }
 
 export interface Warehouse {
   id: string;
   name: string;
-  type: string;
-  location: string;
-  manager: string;
+  type?: string;
+  location?: string;
+  manager?: string;
   notes?: string;
-  created_by: string | null;
+  created_by?: string | null;
   created_at: string;
 }
 
 export interface Supplier {
   id: string;
   name: string;
-  phone: string;
-  email: string;
-  address: string;
+  phone?: string;
+  email?: string;
+  address?: string;
   notes?: string;
-  created_by: string | null;
+  created_by?: string | null;
   created_at: string;
 }
 
 export interface Client {
   id: string;
   name: string;
-  phone: string;
-  address: string;
+  phone?: string;
+  address?: string;
   notes?: string;
-  created_by: string | null;
+  created_by?: string | null;
   created_at: string;
 }
 
@@ -66,11 +66,11 @@ export type MovementType = 'in' | 'out';
 export interface MovementItem {
   product_id: string;
   quantity: number | null;
-  unit: string;                     // اسم الوحدة (للخلفية)
+  unit?: string;
   notes?: string;
-  unit_id?: string;                 // معرف الوحدة الأساسية (للمخزون)
-  display_quantity?: number | null; // الكمية الأصلية المدخلة من المستخدم
-  display_unit_id?: string | null;  // معرف الوحدة الأصلية المدخلة من المستخدم
+  unit_id?: string;
+  display_quantity?: number | null;
+  display_unit_id?: string | null;
 }
 
 export interface StockMovement {
@@ -81,15 +81,15 @@ export interface StockMovement {
   entity_type: 'supplier' | 'client';
   date: string;
   notes?: string;
-  created_by: string | null;
+  created_by?: string | null;
   created_at: string;
   product_id?: string;
   quantity?: number | null;
-  unit?: string;                    // اسم الوحدة (للخلفية)
+  unit?: string;
   items?: MovementItem[];
-  unit_id?: string;                 // معرف الوحدة الأساسية (للمخزون)
-  display_quantity?: number | null; // الكمية الأصلية المدخلة من المستخدم (لحركة مفردة)
-  display_unit_id?: string | null;  // معرف الوحدة الأصلية المدخلة من المستخدم (لحركة مفردة)
+  unit_id?: string;
+  display_quantity?: number | null;
+  display_unit_id?: string | null;
 }
 
 // ============================================================================
