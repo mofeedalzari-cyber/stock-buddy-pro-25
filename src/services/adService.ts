@@ -11,8 +11,8 @@ const BANNER_AD_ID = 'ca-app-pub-7441690948136756/8828876770';
 const INTERSTITIAL_AD_ID = 'ca-app-pub-7441690948136756/xxxxxxxxxx';
 const REWARDED_AD_ID = 'ca-app-pub-7441690948136756/xxxxxxxxxx';
 
-// تفعيل وضع الاختبار أثناء التطوير
-const IS_TESTING = true;
+// تفعيل وضع الاختبار أثناء التطوير (غيّرها إلى false عند النشر)
+const IS_TESTING = false;
 
 export class AdService {
   
