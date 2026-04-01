@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (محدث - دعم الصيغة المختلطة للكميات + ملخص الحركات)
+// ملف: src/pages/movements/ReportsPage.tsx (محدث - دعم الصيغة المختلطة للكميات في الحركات التفصيلية)
 // ============================================================================
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -97,6 +97,23 @@ const ReportsPage = () => {
     const unitId = movement.display_unit_id ?? movement.unit_id;
     if (unitId) return getUnitName(unitId);
     return movement.unit || 'قطعة';
+  };
+
+  // ✅ دالة جديدة: صيغة مختلطة لكمية الحركة الواحدة (تُستخدم في العرض التفصيلي)
+  const getFormattedMovementQty = (movement: any) => {
+    const qty = getMovementDisplayQty(movement);
+    const product = products.find(p => p.id === movement.product_id);
+    if (!product) return `${qty}`;
+    if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
+      return `${qty}`;
+    }
+    const wholeUnits = Math.floor(qty / product.pack_size);
+    const remainder = qty % product.pack_size;
+    const displayUnitName = getUnitName(product.display_unit_id);
+    const baseUnitName = getUnitName(product.base_unit_id || '');
+    if (wholeUnits === 0) return `${remainder} ${baseUnitName}`;
+    if (remainder === 0) return `${wholeUnits} ${displayUnitName}`;
+    return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
   };
 
   // صيغة مختلطة للكمية الصافية لمنتج معين (تُستخدم في ملخص الحركات)
@@ -342,7 +359,7 @@ const ReportsPage = () => {
           'التاريخ': m.date,
           'النوع': m.type === 'in' ? 'وارد' : 'صادر',
           'المنتج': m.productName,
-          'الكمية': getMovementDisplayQty(m),
+          'الكمية': getFormattedMovementQty(m),   // ✅ استخدام الصيغة المختلطة
           'الوحدة': getMovementDisplayUnit(m),
           'المخزن': getWarehouseName(m.warehouse_id),
           'المورد': m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-',
@@ -380,7 +397,7 @@ const ReportsPage = () => {
         m.date,
         m.type === 'in' ? 'وارد' : 'صادر',
         m.productName,
-        String(getMovementDisplayQty(m)),
+        getFormattedMovementQty(m),   // ✅ استخدام الصيغة المختلطة
         getMovementDisplayUnit(m),
         getWarehouseName(m.warehouse_id),
         m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-',
@@ -545,7 +562,7 @@ const ReportsPage = () => {
       String(idx + 1),
       getSupplierName(item.entity_id),
       item.productName,
-      String(getMovementDisplayQty(item)),
+      getFormattedMovementQty(item),   // ✅ استخدام الصيغة المختلطة
       getMovementDisplayUnit(item),
       getWarehouseName(item.warehouse_id),
     ]);
@@ -567,7 +584,7 @@ const ReportsPage = () => {
       String(idx + 1),
       getClientName(item.entity_id),
       item.productName,
-      String(getMovementDisplayQty(item)),
+      getFormattedMovementQty(item),   // ✅ استخدام الصيغة المختلطة
       getMovementDisplayUnit(item),
       getWarehouseName(item.warehouse_id),
       'منصرف',
@@ -679,7 +696,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                   </tr>
+                  </tr>
                 </thead>
                 <tbody>
                   {filteredProducts.map((p, i) => {
@@ -803,7 +820,7 @@ const ReportsPage = () => {
                           }`}>{m.type === 'in' ? 'وارد' : 'صادر'}</span>
                         </td>
                         <td className="p-2 sm:p-3 font-medium">{m.productName}</td>
-                        <td className="p-2 sm:p-3 font-bold">{getMovementDisplayQty(m)}</td>
+                        <td className="p-2 sm:p-3 font-bold">{getFormattedMovementQty(m)}</td> {/* ✅ هنا */}
                         <td className="p-2 sm:p-3 text-muted-foreground">{getMovementDisplayUnit(m)}</td>
                         <td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(m.warehouse_id)}</td>
                         <td className="p-2 sm:p-3 text-muted-foreground">{m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-'}</td>
@@ -980,7 +997,7 @@ const ReportsPage = () => {
                       <td className="p-2">{idx + 1}</td>
                       <td className="p-2 font-medium">{getSupplierName(item.entity_id)}</td>
                       <td className="p-2">{item.productName}</td>
-                      <td className="p-2 font-bold">{getMovementDisplayQty(item)}</td>
+                      <td className="p-2 font-bold">{getFormattedMovementQty(item)}</td>
                       <td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td>
                       <td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td>
                     </tr>
@@ -1022,7 +1039,7 @@ const ReportsPage = () => {
                       <td className="p-2">{idx + 1}</td>
                       <td className="p-2 font-medium">{getClientName(item.entity_id)}</td>
                       <td className="p-2">{item.productName}</td>
-                      <td className="p-2 font-bold">{getMovementDisplayQty(item)}</td>
+                      <td className="p-2 font-bold">{getFormattedMovementQty(item)}</td>
                       <td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td>
                       <td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td>
                       <td className="p-2">
