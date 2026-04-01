@@ -25,18 +25,24 @@ const Dashboard = () => {
   // ✅ دالة للحصول على حد التنبيه للمنتج (افتراضي 2)
   const getMinQuantity = (product: any) => product.min_quantity ?? 2;
 
+  // ✅ دالة لحساب الكمية الفعلية من الحركات
+  const getActualQty = (product: any) => getProductTotalQty(movements, product.id);
+
   // ✅ المنتجات المنخفضة: الكمية > 0 والكمية ≤ الحد الأدنى
-  const lowStock = products.filter(p => p.quantity > 0 && p.quantity <= getMinQuantity(p));
+  const lowStock = products.filter(p => {
+    const qty = getActualQty(p);
+    return qty > 0 && qty <= getMinQuantity(p);
+  });
   
-  // ✅ المنتجات الحرجية (نفس lowStock) - يمكن استخدامها في التنبيه العلوي
+  // ✅ المنتجات الحرجية (نفس lowStock)
   const criticalStock = lowStock;
   
   // المنتجات المنتهية (0)
-  const outOfStock = products.filter(p => p.quantity === 0);
+  const outOfStock = products.filter(p => getActualQty(p) === 0);
 
   // إحصائيات المنتجات
   const totalProducts = products.length;
-  const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
+  const totalStock = products.reduce((sum, p) => sum + getActualQty(p), 0);
 
   // إحصائيات المخازن
   const totalWarehouses = warehouses.length;
