@@ -334,7 +334,7 @@ const ReportsPage = () => {
       warehouseStockDetails.map(d => ({
         'المنتج': d.productName,
         'المخزن': d.warehouseName,
-        'الكمية': d.quantity.toFixed(2),
+        'الكمية': getFormattedQuantityForProduct(d.product),
         'الوحدة': d.unit,
       })),
       'تقرير_المخازن',
@@ -344,7 +344,7 @@ const ReportsPage = () => {
 
   const exportWarehousesPdf = () => {
     if (!checkWarehouseSelected()) return;
-    const rows = warehouseStockDetails.map(d => [d.productName, d.warehouseName, d.quantity.toFixed(2), d.unit]);
+    const rows = warehouseStockDetails.map(d => [d.productName, d.warehouseName, getFormattedQuantityForProduct(d.product), d.unit]);
     const html = buildSimplePdfHtml(
       'تقرير المخازن',
       ['المنتج', 'المخزن', 'الكمية', 'الوحدة'],
@@ -598,38 +598,41 @@ const ReportsPage = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm min-w-[600px]">
-                <thead><tr className="bg-secondary/50 border-b border-border">
-                  <th className="text-right p-2 sm:p-3 font-semibold">م</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الصنف</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  </thead>
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الصنف</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {filteredProducts.map((p, i) => (
-                    <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
-                      <td className="p-2 sm:p-3">{i + 1}</td>
-                      <td className="p-2 sm:p-3 font-medium">{p.name}</td>
-                      <td className="p-2 sm:p-3 text-muted-foreground font-mono text-[10px] sm:text-xs">{p.code}</td>
-                      <td className="p-2 sm:p-3 text-muted-foreground">{getCategoryName(p.category_id || '')}</td>
-                      <td className="p-2 sm:p-3 text-muted-foreground">{getProductSuppliers(movements, p.id, selectedWarehouse, getSupplierName)}</td>
-                      <td className="p-2 sm:p-3 text-muted-foreground">{getProductClients(movements, p.id, selectedWarehouse, getClientName)}</td>
-                      <td className="p-2 sm:p-3">
-                        {(() => { const qty = getDisplayQty(p); return (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                          qty === 0 ? 'bg-destructive/10 text-destructive' :
-                          qty <= 10 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
-                        }`}>{getFormattedQuantityForProduct(p)}</span>
-                        ); })()}
-                      </td>
-                      <td className="p-2 sm:p-3 text-muted-foreground">
-                        {p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة')}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredProducts.map((p, i) => {
+                    const qty = getDisplayQty(p);
+                    const styleClass = qty === 0 ? 'bg-destructive/10 text-destructive' : (qty <= 10 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success');
+                    return (
+                      <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
+                        <td className="p-2 sm:p-3">{i + 1}</td>
+                        <td className="p-2 sm:p-3 font-medium">{p.name}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground font-mono text-[10px] sm:text-xs">{p.code}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{getCategoryName(p.category_id || '')}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{getProductSuppliers(movements, p.id, selectedWarehouse, getSupplierName)}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{getProductClients(movements, p.id, selectedWarehouse, getClientName)}</td>
+                        <td className="p-2 sm:p-3">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${styleClass}`}>
+                            {getFormattedQuantityForProduct(p)}
+                          </span>
+                        </td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">
+                          {p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة')}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -679,17 +682,19 @@ const ReportsPage = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm min-w-[600px]">
-                <thead><tr className="bg-secondary/50 border-b border-border">
-                  <th className="text-right p-2 sm:p-3 font-semibold">م</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">التاريخ</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">النوع</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                  </thead>
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">التاريخ</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">النوع</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {filteredExpanded.map((m, i) => (
                     <tr key={m.itemId} className="border-b border-border last:border-0 hover:bg-secondary/30">
@@ -744,19 +749,21 @@ const ReportsPage = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm">
-                <thead><tr className="bg-secondary/50 border-b border-border">
-                  <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  </thead>
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {warehouseStockDetails.map((d, i) => (
                     <tr key={i} className="border-b border-border last:border-0 hover:bg-secondary/30">
                       <td className="p-2 sm:p-3 font-medium">{d.productName}</td>
                       <td className="p-2 sm:p-3">{d.warehouseName}</td>
                       <td className="p-2 sm:p-3 font-bold">
-                        {d.product && getFormattedQuantityForProduct(d.product)}
+                        {getFormattedQuantityForProduct(d.product)}
                       </td>
                       <td className="p-2 sm:p-3">{d.unit}</td>
                     </tr>
@@ -797,15 +804,17 @@ const ReportsPage = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm min-w-[500px]">
-                <thead><tr className="bg-secondary/50 border-b border-border">
-                  <th className="text-right p-2 sm:p-3 font-semibold">م</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
-                  <th className="text-right p-2 sm:p-3 font-semibold">الحالة</th>
-                  </thead>
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الحالة</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {lowStock.map((p, i) => {
                     const qty = getDisplayQty(p);
@@ -857,14 +866,16 @@ const ReportsPage = () => {
             </div>
             <div className="overflow-x-auto p-3">
               <table className="w-full text-xs sm:text-sm">
-                <thead><tr className="bg-secondary/50 border-b border-border">
-                  <th className="text-right p-2 font-semibold">م</th>
-                  <th className="text-right p-2 font-semibold">المورد</th>
-                  <th className="text-right p-2 font-semibold">المنتج</th>
-                  <th className="text-right p-2 font-semibold">الكمية</th>
-                  <th className="text-right p-2 font-semibold">الوحدة</th>
-                  <th className="text-right p-2 font-semibold">المخزن</th>
-                  </thead>
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 font-semibold">م</th>
+                    <th className="text-right p-2 font-semibold">المورد</th>
+                    <th className="text-right p-2 font-semibold">المنتج</th>
+                    <th className="text-right p-2 font-semibold">الكمية</th>
+                    <th className="text-right p-2 font-semibold">الوحدة</th>
+                    <th className="text-right p-2 font-semibold">المخزن</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {supplierItems.map((item, idx) => (
                     <tr key={item.itemId} className="border-b border-border hover:bg-secondary/30">
@@ -896,15 +907,17 @@ const ReportsPage = () => {
             </div>
             <div className="overflow-x-auto p-3">
               <table className="w-full text-xs sm:text-sm">
-                <thead><tr className="bg-secondary/50 border-b border-border">
-                  <th className="text-right p-2 font-semibold">م</th>
-                  <th className="text-right p-2 font-semibold">جهة الصرف</th>
-                  <th className="text-right p-2 font-semibold">المنتج</th>
-                  <th className="text-right p-2 font-semibold">الكمية</th>
-                  <th className="text-right p-2 font-semibold">الوحدة</th>
-                  <th className="text-right p-2 font-semibold">المخزن</th>
-                  <th className="text-right p-2 font-semibold">النوع</th>
-                  </thead>
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 font-semibold">م</th>
+                    <th className="text-right p-2 font-semibold">جهة الصرف</th>
+                    <th className="text-right p-2 font-semibold">المنتج</th>
+                    <th className="text-right p-2 font-semibold">الكمية</th>
+                    <th className="text-right p-2 font-semibold">الوحدة</th>
+                    <th className="text-right p-2 font-semibold">المخزن</th>
+                    <th className="text-right p-2 font-semibold">النوع</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {clientItems.map((item, idx) => (
                     <tr key={item.itemId} className="border-b border-border hover:bg-secondary/30">
