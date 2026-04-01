@@ -88,7 +88,7 @@ const Dashboard = () => {
 
   // ✅ دالة لتحديد لون التحذير حسب الكمية والحد
   const getStockAlertColor = (product: any) => {
-    const qty = product.quantity;
+    const qty = getActualQty(product);
     const threshold = getMinQuantity(product);
     if (qty === 0) return 'bg-destructive/10 text-destructive';
     if (qty <= threshold) return 'bg-warning/10 text-warning';
