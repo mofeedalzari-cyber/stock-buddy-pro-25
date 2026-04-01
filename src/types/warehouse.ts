@@ -6,18 +6,18 @@ export interface Product {
   id: string;
   name: string;
   code: string;
-  barcode: string;
-  category_id: string | null;
-  quantity: number;               // المخزون بالوحدة الأساسية
+  barcode?: string;
+  category_id?: string | null;
+  quantity: number;
   min_quantity?: number;
-  warehouse_id: string | null;
-  description: string;
-  unit?: string;                  // الوحدة المعروضة (للخلفية)
-  base_unit_id?: string;          // معرف الوحدة الأساسية
-  display_unit_id?: string;       // معرف الوحدة المعروضة
-  pack_size?: number;             // معامل التحويل (1 display_unit = pack_size base_unit)
+  warehouse_id?: string | null;
+  description?: string;
+  unit?: string;
+  base_unit_id?: string | null;
+  display_unit_id?: string | null;
+  pack_size?: number;
   image?: string;
-  created_by: string | null;
+  created_by?: string | null;
   created_at: string;
 }
 
