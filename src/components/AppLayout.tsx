@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Package, FolderOpen, Building2, Truck, Users,
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import NotificationBell from '@/components/NotificationBell';
 import { TranslationKey } from '@/i18n/translations';
+import { AdService } from '@/services/adService';
 
 const navItems: { path: string; labelKey: TranslationKey; icon: any }[] = [
   { path: '/', labelKey: 'nav_dashboard', icon: LayoutDashboard },
@@ -28,6 +29,19 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { displayName, role, signOut } = useAuth();
   const { t, dir } = useLanguage();
+
+  // تهيئة وعرض إعلان البانر
+  useEffect(() => {
+    const initAds = async () => {
+      await AdService.initialize();
+      await AdService.showBanner();
+    };
+    initAds();
+    
+    return () => {
+      AdService.hideBanner();
+    };
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-background" dir={dir}>
@@ -134,7 +148,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           </div>
         </header>
 
-        <div className="flex-1 p-4 sm:p-6 lg:p-8 animate-in fade-in duration-500 overflow-x-hidden">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 animate-in fade-in duration-500 overflow-x-hidden pb-16">
           {children}
         </div>
       </main>
