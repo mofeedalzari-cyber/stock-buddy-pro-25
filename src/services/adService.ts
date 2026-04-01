@@ -76,11 +76,11 @@ export class AdService {
           isTesting: IS_TESTING,
         });
         
-        const rewardListener = AdMob.addListener('onRewarded', () => {
+        const rewardListener = await (AdMob as any).addListener('onRewarded', () => {
           resolve(true);
         });
         
-        const closeListener = AdMob.addListener('onRewardedVideoAdClosed', () => {
+        const closeListener = await (AdMob as any).addListener('onRewardedVideoAdClosed', () => {
           rewardListener.remove();
           closeListener.remove();
           resolve(false);
