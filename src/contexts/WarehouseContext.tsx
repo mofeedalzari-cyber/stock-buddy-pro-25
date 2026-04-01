@@ -184,14 +184,14 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       supabase.from('products').select('*'),
       supabase.from('stock_movements').select('*'),
       supabase.from('profiles').select('user_id, display_name'),
-      supabase.from('units').select('*'),
-      supabase.from('unit_conversions').select('*'),
+      (supabase as any).from('units').select('*'),
+      (supabase as any).from('unit_conversions').select('*'),
     ]);
-    if (catRes.data) setCategories(catRes.data as Category[]);
-    if (whRes.data) setWarehouses(whRes.data as Warehouse[]);
-    if (supRes.data) setSuppliers(supRes.data as Supplier[]);
-    if (clRes.data) setClients(clRes.data as Client[]);
-    if (prodRes.data) setProducts(prodRes.data as Product[]);
+    if (catRes.data) setCategories(catRes.data as unknown as Category[]);
+    if (whRes.data) setWarehouses(whRes.data as unknown as Warehouse[]);
+    if (supRes.data) setSuppliers(supRes.data as unknown as Supplier[]);
+    if (clRes.data) setClients(clRes.data as unknown as Client[]);
+    if (prodRes.data) setProducts(prodRes.data as unknown as Product[]);
     if (movRes.data) {
       const movementsData = (movRes.data as any[]).map((mov: any) => ({
         ...mov,
