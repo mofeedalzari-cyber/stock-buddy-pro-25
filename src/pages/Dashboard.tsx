@@ -5,6 +5,7 @@ import { Package, Building2, Truck, ArrowLeftRight, AlertTriangle, TrendingUp, R
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { getProductTotalQty } from '@/pages/movements/reportsUtils';
 
 const CHART_COLORS = ['hsl(174, 62%, 38%)', 'hsl(37, 95%, 55%)', 'hsl(220, 30%, 40%)', 'hsl(152, 60%, 40%)', 'hsl(0, 72%, 51%)'];
 
@@ -24,18 +25,24 @@ const Dashboard = () => {
   // ✅ دالة للحصول على حد التنبيه للمنتج (افتراضي 2)
   const getMinQuantity = (product: any) => product.min_quantity ?? 2;
 
+  // ✅ دالة لحساب الكمية الفعلية من الحركات
+  const getActualQty = (product: any) => getProductTotalQty(movements, product.id);
+
   // ✅ المنتجات المنخفضة: الكمية > 0 والكمية ≤ الحد الأدنى
-  const lowStock = products.filter(p => p.quantity > 0 && p.quantity <= getMinQuantity(p));
+  const lowStock = products.filter(p => {
+    const qty = getActualQty(p);
+    return qty > 0 && qty <= getMinQuantity(p);
+  });
   
-  // ✅ المنتجات الحرجية (نفس lowStock) - يمكن استخدامها في التنبيه العلوي
+  // ✅ المنتجات الحرجية (نفس lowStock)
   const criticalStock = lowStock;
   
   // المنتجات المنتهية (0)
-  const outOfStock = products.filter(p => p.quantity === 0);
+  const outOfStock = products.filter(p => getActualQty(p) === 0);
 
   // إحصائيات المنتجات
   const totalProducts = products.length;
-  const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
+  const totalStock = products.reduce((sum, p) => sum + getActualQty(p), 0);
 
   // إحصائيات المخازن
   const totalWarehouses = warehouses.length;
@@ -81,7 +88,7 @@ const Dashboard = () => {
 
   // ✅ دالة لتحديد لون التحذير حسب الكمية والحد
   const getStockAlertColor = (product: any) => {
-    const qty = product.quantity;
+    const qty = getActualQty(product);
     const threshold = getMinQuantity(product);
     if (qty === 0) return 'bg-destructive/10 text-destructive';
     if (qty <= threshold) return 'bg-warning/10 text-warning';
@@ -113,10 +120,10 @@ const Dashboard = () => {
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {criticalStock.slice(0, 5).map(p => (
-                  <span key={p.id} className={`text-[10px] px-2 py-0.5 rounded-full ${getStockAlertColor(p)}`}>
-                    {p.name}: {p.quantity} {p.unit || 'قطعة'} (الحد: {getMinQuantity(p)})
-                    {p.warehouse_id && ` - ${getWarehouseName(p.warehouse_id)}`}
-                  </span>
+                   <span key={p.id} className={`text-[10px] px-2 py-0.5 rounded-full ${getStockAlertColor(p)}`}>
+                     {p.name}: {getActualQty(p)} {p.unit || 'قطعة'} (الحد: {getMinQuantity(p)})
+                     {p.warehouse_id && ` - ${getWarehouseName(p.warehouse_id)}`}
+                   </span>
                 ))}
                 {criticalStock.length > 5 && (
                   <span className="text-[10px] text-muted-foreground">+{criticalStock.length - 5} منتجات أخرى</span>
@@ -247,7 +254,7 @@ const Dashboard = () => {
                     </span>
                   </div>
                   <span className={`text-xs sm:text-sm font-bold px-2 py-0.5 rounded-full ${getStockAlertColor(p)}`}>
-                    {p.quantity} {p.unit || 'قطعة'}
+                    {getActualQty(p)} {p.unit || 'قطعة'}
                   </span>
                 </div>
               ))}
