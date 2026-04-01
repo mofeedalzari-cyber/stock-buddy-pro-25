@@ -143,7 +143,11 @@ const ReportsPage = () => {
       )
     : products;
 
-  const lowStock = filteredProducts.filter(p => getDisplayQty(p) <= 10);
+  const getMinQuantity = (product: Product) => (product as any).min_quantity ?? 2;
+  const lowStock = filteredProducts.filter(p => {
+    const qty = getDisplayQty(p);
+    return qty > 0 && qty <= getMinQuantity(p);
+  });
   const outOfStock = filteredProducts.filter(p => getDisplayQty(p) === 0);
 
   const expanded = expandMovements(movements, getProductName);
