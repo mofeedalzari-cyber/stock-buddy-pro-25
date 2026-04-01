@@ -81,15 +81,15 @@ export interface StockMovement {
   entity_type: 'supplier' | 'client';
   date: string;
   notes?: string;
-  created_by: string | null;
+  created_by?: string | null;
   created_at: string;
   product_id?: string;
   quantity?: number | null;
-  unit?: string;                    // اسم الوحدة (للخلفية)
+  unit?: string;
   items?: MovementItem[];
-  unit_id?: string;                 // معرف الوحدة الأساسية (للمخزون)
-  display_quantity?: number | null; // الكمية الأصلية المدخلة من المستخدم (لحركة مفردة)
-  display_unit_id?: string | null;  // معرف الوحدة الأصلية المدخلة من المستخدم (لحركة مفردة)
+  unit_id?: string;
+  display_quantity?: number | null;
+  display_unit_id?: string | null;
 }
 
 // ============================================================================
