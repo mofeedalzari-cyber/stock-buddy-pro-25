@@ -232,7 +232,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         supabase.from('clients').select('*').then(r => { if (r.data) setClients(r.data as Client[]); });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-        supabase.from('products').select('*').then(r => { if (r.data) setProducts(r.data as Product[]); });
+        supabase.from('products').select('*').then(r => { if (r.data) setProducts(r.data as unknown as Product[]); });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => {
         supabase.from('stock_movements').select('*').then(r => {
