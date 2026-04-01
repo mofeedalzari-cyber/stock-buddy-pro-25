@@ -205,8 +205,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       (profRes.data as any[]).forEach((p: any) => { map[p.user_id] = p.display_name; });
       setProfiles(map);
     }
-    if (unitsRes.data) setUnits(unitsRes.data as Unit[]);
-    if (convRes.data) setUnitConversions(convRes.data as UnitConversion[]);
+    if (unitsRes.data) setUnits(unitsRes.data as unknown as Unit[]);
+    if (convRes.data) setUnitConversions(convRes.data as unknown as UnitConversion[]);
     setLoading(false);
   }, []);
 
