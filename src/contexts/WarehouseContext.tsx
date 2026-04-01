@@ -54,7 +54,7 @@ export interface Product {
   warehouse_id?: string | null;
   description?: string;
   image?: string;
-  unit: string;
+  unit?: string;
   min_quantity?: number;
   pack_size?: number;
   base_unit_id?: string | null;
