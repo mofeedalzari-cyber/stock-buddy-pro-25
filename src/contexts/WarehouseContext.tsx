@@ -283,7 +283,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     if (data) {
-      setProducts(prev => [...prev, data as Product]);
+      setProducts(prev => [...prev, data as unknown as Product]);
     }
   }, [user]);
 
