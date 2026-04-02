@@ -31,6 +31,7 @@ import ReportsPage from "@/pages/movements/ReportsPage";
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "./pages/NotFound";
 import ArmoryPage from "./pages/ArmoryPage";
+import OfflineBanner from "@/components/OfflineBanner";
 
 const queryClient = new QueryClient();
 
@@ -116,6 +117,7 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
+            <OfflineBanner />
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<LoginRoute />} />
