@@ -117,6 +117,7 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
+            <OfflineBanner />
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<LoginRoute />} />
