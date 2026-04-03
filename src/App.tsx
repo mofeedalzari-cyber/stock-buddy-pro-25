@@ -100,6 +100,7 @@ const LoginRoute = () => {
   if (user) return <Navigate to="/" replace />;
   return (
     <>
+      <OfflineBanner />
       <BackButtonManager />
       <LoginPage />
     </>
