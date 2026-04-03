@@ -9,7 +9,7 @@ import { Capacitor } from "@capacitor/core"; // ✅ استيراد Capacitor
 import { toast } from "sonner";
 
 // استيراد المزودات (Providers)
-import { WarehouseProvider } from "@/contexts/WarehouseContext";
+import { WarehouseProvider, useWarehouse } from "@/contexts/WarehouseContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ArmoryProvider } from "@/contexts/ArmoryContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
