@@ -64,24 +64,32 @@ const ProtectedRoutes = () => {
   return (
     <WarehouseProvider>
       <ArmoryProvider>
-        <AppLayout>
-          <BackButtonManager />
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/categories" element={<CategoriesPage />} />
-            <Route path="/warehouses" element={<WarehousesPage />} />
-            <Route path="/suppliers" element={<SuppliersPage />} />
-            <Route path="/clients" element={<ClientsPage />} />
-            <Route path="/movements" element={<MovementsPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/armory" element={<ArmoryPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppLayout>
+        <ProtectedContent />
       </ArmoryProvider>
     </WarehouseProvider>
+  );
+};
+
+const ProtectedContent = () => {
+  const { pendingCount, syncing, syncOfflineData } = useWarehouse();
+  return (
+    <AppLayout>
+      <OfflineBanner pendingCount={pendingCount} syncing={syncing} onSync={syncOfflineData} />
+      <BackButtonManager />
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/categories" element={<CategoriesPage />} />
+        <Route path="/warehouses" element={<WarehousesPage />} />
+        <Route path="/suppliers" element={<SuppliersPage />} />
+        <Route path="/clients" element={<ClientsPage />} />
+        <Route path="/movements" element={<MovementsPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/armory" element={<ArmoryPage />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AppLayout>
   );
 };
 
