@@ -99,21 +99,20 @@ const ReportsPage = () => {
     return movement.unit || 'قطعة';
   };
 
-  // ✅ دالة جديدة: صيغة مختلطة لكمية الحركة الواحدة (تُستخدم في العرض التفصيلي)
+  // ✅ دالة عرض كمية الحركة كما تم إدخالها (بالوحدة الأصلية: كيلو أو كيس)
   const getFormattedMovementQty = (movement: any) => {
-    const qty = getMovementDisplayQty(movement);
-    const product = products.find(p => p.id === movement.product_id);
-    if (!product) return `${qty}`;
-    if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
-      return `${qty}`;
+    // إذا كانت هناك كمية عرض (display_quantity) ووحدة عرض، نعرضها مباشرة
+    if (movement.display_quantity != null && movement.display_unit_id) {
+      const displayUnitName = getUnitName(movement.display_unit_id);
+      return `${movement.display_quantity} ${displayUnitName}`;
     }
-    const wholeUnits = Math.floor(qty / product.pack_size);
-    const remainder = qty % product.pack_size;
-    const displayUnitName = getUnitName(product.display_unit_id);
-    const baseUnitName = getUnitName(product.base_unit_id || '');
-    if (wholeUnits === 0) return `${remainder} ${baseUnitName}`;
-    if (remainder === 0) return `${wholeUnits} ${displayUnitName}`;
-    return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
+    // وإلا نعرض الكمية الأساسية مع وحدتها
+    const qty = movement.quantity ?? 0;
+    const unitId = movement.unit_id;
+    if (unitId) {
+      return `${qty} ${getUnitName(unitId)}`;
+    }
+    return `${qty} ${movement.unit || 'قطعة'}`;
   };
 
   // صيغة مختلطة للكمية الصافية لمنتج معين (تُستخدم في ملخص الحركات)
