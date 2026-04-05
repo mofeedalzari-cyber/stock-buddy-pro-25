@@ -590,11 +590,13 @@ const MovementsPage = () => {
           const minQty = getProductMinQty(form.product_id);
           const newStock = currentStock - baseQuantity;
           if (newStock < minQty && minQty > 0) {
-            toast({
-              title: '⚠️ تحذير: مخزون أقل من الحد الأدنى',
-              description: `بعد هذه العملية، سيصبح المخزون (${newStock}) وهو أقل من الحد الأدنى المحدد (${minQty}).`,
-              variant: 'destructive'
-            });
+            // تحذير فقط - لا يمنع العملية
+            setTimeout(() => {
+              toast({
+                title: '⚠️ تنبيه: مخزون منخفض',
+                description: `بعد هذه العملية، سيصبح المخزون (${newStock}) وهو أقل من الحد الأدنى المحدد (${minQty}).`,
+              });
+            }, 500);
           }
         }
 
