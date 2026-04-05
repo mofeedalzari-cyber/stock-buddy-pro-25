@@ -767,7 +767,7 @@ const ReportsPage = () => {
                   عرض تفصيلي
                 </Button>
                 <Button size="sm" variant={groupByProduct ? "default" : "outline"} onClick={() => setGroupByProduct(true)}>
-                  عرض ملخص حسب المنتج
+                  عرض ملخص
                 </Button>
                 <div className="flex gap-1.5 sm:gap-2">
                   <Button size="sm" variant="outline" onClick={exportMovementsExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
