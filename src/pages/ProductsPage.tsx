@@ -35,7 +35,7 @@ const ProductsPage = () => {
     display_unit_id: '',
     pack_size: 1
   });
-  // حقول الكمية الابتدائية والمخزن
+  // حقول الكمية الافتتاحية (الموجودة حالياً في المخزن)
   const [initialQuantity, setInitialQuantity] = useState(0);
   const [initialWarehouseId, setInitialWarehouseId] = useState('');
   
@@ -44,8 +44,9 @@ const ProductsPage = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false); // حالة لمنع النقر المتكرر
 
-  // ========== دوال حساب الكميات ==========
+  // ========== دوال حساب الكميات (بدون تغيير) ==========
   const getWarehouseQty = (productId: string, warehouseId: string) => {
     let total = 0;
     movements.forEach(m => {
@@ -238,6 +239,7 @@ const ProductsPage = () => {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     if (!form.name.trim()) {
       toast({ title: 'تنبيه', description: 'يرجى إدخال جميع البيانات المطلوبة', variant: 'destructive' });
       return;
@@ -249,74 +251,87 @@ const ProductsPage = () => {
       if (checkDuplicateProductName(form.name)) return;
     }
     
-    if (editing) {
-      await updateProduct({
-        ...editing,
-        name: form.name,
-        code: form.code,
-        barcode: form.barcode,
-        category_id: form.category_id || null,
-        description: form.description,
-        min_quantity: form.min_quantity,
-        unit: form.unit,
-        base_unit_id: form.base_unit_id,
-        display_unit_id: form.display_unit_id,
-        pack_size: form.pack_size
-      });
-      await refreshAll();
-      toast({ title: 'تم التعديل', description: 'تم تعديل المنتج بنجاح' });
-    } else {
-      // إضافة المنتج أولاً
-      await addProduct({
-        name: form.name,
-        code: form.code,
-        barcode: form.barcode,
-        category_id: form.category_id || null,
-        quantity: 0,
-        warehouse_id: null,
-        description: form.description,
-        min_quantity: form.min_quantity,
-        unit: form.unit,
-        base_unit_id: form.base_unit_id,
-        display_unit_id: form.display_unit_id,
-        pack_size: form.pack_size
-      });
-      
-      // بعد إضافة المنتج، نبحث عن المنتج المضاف حديثاً (آخر منتج بنفس الاسم والكود)
-      const addedProduct = products.find(p => p.name === form.name && p.code === form.code);
-      
-      if (initialQuantity > 0 && initialWarehouseId && addedProduct?.id) {
-        // البحث عن مورد افتراضي للرصيد الافتتاحي
-        const openingSupplier = suppliers.find(s => s.name === 'الرصيد الافتتاحي' || s.name === 'رصيد افتتاحي');
-        if (!openingSupplier) {
-          toast({ 
-            title: 'تنبيه', 
-            description: 'لم يتم إضافة الحركة: لا يوجد مورد باسم "الرصيد الافتتاحي". يرجى إنشاؤه أولاً.', 
-            variant: 'destructive' 
-          });
-        } else {
-          await addMovement({
-            type: 'in',
-            date: new Date().toISOString(),
-            warehouse_id: initialWarehouseId,
-            entity_id: openingSupplier.id,
-            entity_type: 'supplier',
-            product_id: addedProduct.id,
-            quantity: initialQuantity,
-            unit: form.unit,
-            notes: 'رصيد افتتاحي',
-            unit_id: form.base_unit_id || undefined,
-            display_quantity: null,
-            display_unit_id: null
-          });
-          toast({ title: 'تم', description: `تم إضافة ${initialQuantity} ${getUnitName(form.base_unit_id || form.unit)} إلى المخزن` });
+    setSaving(true);
+    
+    try {
+      if (editing) {
+        await updateProduct({
+          ...editing,
+          name: form.name,
+          code: form.code,
+          barcode: form.barcode,
+          category_id: form.category_id || null,
+          description: form.description,
+          min_quantity: form.min_quantity,
+          unit: form.unit,
+          base_unit_id: form.base_unit_id,
+          display_unit_id: form.display_unit_id,
+          pack_size: form.pack_size
+        });
+        await refreshAll();
+        toast({ title: 'تم التعديل', description: 'تم تعديل المنتج بنجاح' });
+      } else {
+        // إضافة المنتج
+        await addProduct({
+          name: form.name,
+          code: form.code,
+          barcode: form.barcode,
+          category_id: form.category_id || null,
+          quantity: 0,
+          warehouse_id: null,
+          description: form.description,
+          min_quantity: form.min_quantity,
+          unit: form.unit,
+          base_unit_id: form.base_unit_id,
+          display_unit_id: form.display_unit_id,
+          pack_size: form.pack_size
+        });
+        
+        // تحديث البيانات للتأكد من ظهور المنتج الجديد
+        await refreshAll();
+        
+        // البحث عن المنتج المضاف (باستخدام الاسم والكود)
+        const addedProduct = products.find(p => p.name === form.name && p.code === form.code);
+        
+        // إضافة الكمية الافتتاحية كحركة دخول إذا توفرت البيانات
+        if (initialQuantity > 0 && initialWarehouseId && addedProduct?.id) {
+          const openingSupplier = suppliers.find(s => s.name === 'الرصيد الافتتاحي' || s.name === 'رصيد افتتاحي');
+          if (!openingSupplier) {
+            toast({ 
+              title: 'تنبيه', 
+              description: 'لم يتم إضافة الكمية الافتتاحية: لا يوجد مورد باسم "الرصيد الافتتاحي". يرجى إنشاؤه أولاً.', 
+              variant: 'destructive' 
+            });
+          } else {
+            await addMovement({
+              type: 'in',
+              date: new Date().toISOString(),
+              warehouse_id: initialWarehouseId,
+              entity_id: openingSupplier.id,
+              entity_type: 'supplier',
+              product_id: addedProduct.id,
+              quantity: initialQuantity,
+              unit: form.unit,
+              notes: 'رصيد افتتاحي (الكمية الموجودة حالياً في المخزن)',
+              unit_id: form.base_unit_id || undefined,
+              display_quantity: null,
+              display_unit_id: null
+            });
+            toast({ title: 'تم', description: `تم إضافة ${initialQuantity} ${getUnitName(form.base_unit_id || form.unit)} كرصيد افتتاحي للمنتج` });
+            // تحديث البيانات مرة أخرى لظهور الكمية
+            await refreshAll();
+          }
         }
+        
+        toast({ title: 'تم الإضافة', description: 'تم إضافة المنتج بنجاح' });
       }
-      
-      await refreshAll();
-      toast({ title: 'تم الإضافة', description: 'تم إضافة المنتج بنجاح' });
+      setDialogOpen(false);
+    } catch (error) {
+      console.error(error);
+      toast({ title: 'خطأ', description: 'حدث خطأ أثناء حفظ البيانات', variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
-    setDialogOpen(false);
   };
 
   const confirmDelete = (p: Product) => {
@@ -405,7 +420,7 @@ const ProductsPage = () => {
           <Button onClick={handleRefresh} variant="outline" className="text-sm" disabled={refreshing}>
             <RefreshCw className={`w-4 h-4 ml-2 ${refreshing ? 'animate-spin' : ''}`} />تحديث
           </Button>
-          <Button onClick={openAdd} className="gradient-primary border-0 flex-1 sm:flex-none text-sm">
+          <Button onClick={openAdd} className="gradient-primary border-0 flex-1 sm:flex-none text-sm" disabled={saving}>
             <Plus className="w-4 h-4 ml-2" />إضافة منتج
           </Button>
           {isAdmin && selected.size > 0 && (
@@ -444,7 +459,7 @@ const ProductsPage = () => {
                 <th className="text-right p-3 font-semibold text-foreground">حد التنبيه</th>
                 {!selectedWarehouse && <th className="text-right p-3 font-semibold text-foreground hidden lg:table-cell">المخازن</th>}
                 <th className="text-center p-3 font-semibold text-foreground">إجراءات</th>
-              </tr>
+               </tr>
             </thead>
             <tbody>
               {filtered.map(p => {
@@ -586,7 +601,7 @@ const ProductsPage = () => {
               <Input placeholder="أدخل وصف المنتج" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             </div>
 
-            {/* ✅ حقول الكمية الابتدائية - تظهر فقط عند الإضافة */}
+            {/* حقول الكمية الافتتاحية (الموجودة حالياً في المخزن) - تظهر فقط عند الإضافة */}
             {!editing && (
               <>
                 <div className="space-y-1.5">
@@ -601,7 +616,7 @@ const ProductsPage = () => {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs sm:text-sm">الكمية الابتدائية (بالوحدة الأساسية)</Label>
+                  <Label className="text-xs sm:text-sm">الكمية الافتتاحية (الموجودة حالياً في المخزن)</Label>
                   <Input
                     type="number"
                     min="0"
@@ -611,14 +626,14 @@ const ProductsPage = () => {
                     placeholder="مثال: 100"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    الكمية الموجودة في المخزن عند إضافة المنتج (سيتم تسجيلها كحركة دخول تلقائية).
+                    الكمية الموجودة حالياً في المخزن لهذا المنتج. سيتم تسجيلها كحركة دخول (رصيد افتتاحي).
                   </p>
                 </div>
               </>
             )}
 
-            <Button onClick={handleSave} className="gradient-primary border-0 mt-1 text-sm">
-              {editing ? 'تحديث' : 'إضافة'}
+            <Button onClick={handleSave} className="gradient-primary border-0 mt-1 text-sm" disabled={saving}>
+              {saving ? 'جاري الحفظ...' : (editing ? 'تحديث' : 'إضافة')}
             </Button>
           </div>
         </DialogContent>
