@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (نسخة مصححة - أخطاء JSX)
+// ملف: src/pages/movements/ReportsPage.tsx (نسخة مصححة بالكامل)
 // ============================================================================
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -287,7 +287,6 @@ const ReportsPage = () => {
     return true;
   };
 
-  // دوال التصدير
   const exportProductsExcel = () => {
     if (!checkWarehouseSelected()) return;
     exportExcel(
@@ -604,6 +603,7 @@ const ReportsPage = () => {
 
   return (
     <div className="space-y-4 sm:space-y-5" dir="rtl">
+      {/* القسم العلوي: اختيار المخزن */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <label className="text-sm font-semibold text-foreground whitespace-nowrap">المخزن:</label>
@@ -626,6 +626,7 @@ const ReportsPage = () => {
         </Button>
       </div>
 
+      {/* شريط التبويبات */}
       <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
@@ -637,6 +638,7 @@ const ReportsPage = () => {
         ))}
       </div>
 
+      {/* محتوى تبويب المنتجات */}
       {tab === 'products' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
@@ -664,26 +666,34 @@ const ReportsPage = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-<div className="overflow-x-auto">
-  <table className="w-full text-xs sm:text-sm min-w-[600px]">
-    <thead>
-      <tr className="bg-secondary/50 border-b border-border">
-        <th className="text-right p-2 sm:p-3 font-semibold">م</th>
-        <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
-        <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
-        <th className="text-right p-2 sm:p-3 font-semibold">الصنف</th>
-        <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
-        <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-        <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
-        <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-      </tr>
-    </thead>
-    <tbody>
-      {/* هنا تبدأ إضافة الصفوف الخاصة بالبيانات */}
-    </tbody>
-  </table>
-</div>
 
+          <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2">
+              <h3 className="font-semibold text-foreground text-sm sm:text-base">جدول المنتجات</h3>
+              <div className="flex gap-1.5 sm:gap-2 shrink-0">
+                <Button size="sm" variant="outline" onClick={exportProductsExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
+                  <FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />Excel
+                </Button>
+                <Button size="sm" variant="outline" onClick={exportProductsPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
+                  <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />PDF
+                </Button>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs sm:text-sm min-w-[600px]">
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الصنف</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {filteredProducts.map((p, i) => {
                     const qty = getDisplayQty(p);
                     const styleClass = qty === 0 ? 'bg-destructive/10 text-destructive' : (qty <= 10 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success');
@@ -713,6 +723,7 @@ const ReportsPage = () => {
         </div>
       )}
 
+      {/* محتوى تبويب الحركات */}
       {tab === 'movements' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card">
@@ -747,82 +758,17 @@ const ReportsPage = () => {
                   جدول الحركات ({groupByProduct ? groupedByProduct.length : filteredExpanded.length} عنصر)
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setGroupByProduct(false)}
-                    style={{
-                      padding: '4px 12px',
-                      fontSize: '12px',
-                      borderRadius: '6px',
-                      border: '1px solid #ccc',
-                      background: !groupByProduct ? '#3b82f6' : 'white',
-                      color: !groupByProduct ? 'white' : 'black',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    عرض تفصيلي
-                  </button>
-                  <button
-                    onClick={() => setGroupByProduct(true)}
-                    style={{
-                      padding: '4px 12px',
-                      fontSize: '12px',
-                      borderRadius: '6px',
-                      border: '1px solid #ccc',
-                      background: groupByProduct ? '#3b82f6' : 'white',
-                      color: groupByProduct ? 'white' : 'black',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    عرض ملخص
-                  </button>
-                  <button
-                    onClick={exportMovementsExcel}
-                    style={{
-                      padding: '4px 12px',
-                      fontSize: '12px',
-                      borderRadius: '6px',
-                      border: '1px solid #ccc',
-                      background: 'white',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
+                  <Button size="sm" variant={!groupByProduct ? "default" : "outline"} onClick={() => setGroupByProduct(false)} className="h-8 text-xs">عرض تفصيلي</Button>
+                  <Button size="sm" variant={groupByProduct ? "default" : "outline"} onClick={() => setGroupByProduct(true)} className="h-8 text-xs">عرض ملخص</Button>
+                  <Button size="sm" variant="outline" onClick={exportMovementsExcel} className="h-8 text-xs gap-1.5">
                     <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
-                  </button>
-                  <button
-                    onClick={exportMovementsPdf}
-                    style={{
-                      padding: '4px 12px',
-                      fontSize: '12px',
-                      borderRadius: '6px',
-                      border: '1px solid #ccc',
-                      background: 'white',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={exportMovementsPdf} className="h-8 text-xs gap-1.5">
                     <FileText className="w-3.5 h-3.5" /> PDF
-                  </button>
-                  <button
-                    onClick={printMovements}
-                    style={{
-                      padding: '4px 12px',
-                      fontSize: '12px',
-                      borderRadius: '6px',
-                      border: '1px solid #ccc',
-                      background: 'white',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={printMovements} className="h-8 text-xs gap-1.5">
                     <Printer className="w-3.5 h-3.5" /> طباعة
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -882,6 +828,7 @@ const ReportsPage = () => {
         </div>
       )}
 
+      {/* محتوى تبويب المخازن */}
       {tab === 'warehouses' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-5 border border-border shadow-card">
@@ -935,6 +882,7 @@ const ReportsPage = () => {
         </div>
       )}
 
+      {/* محتوى تبويب المخزون المنخفض */}
       {tab === 'low-stock' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
@@ -1001,6 +949,7 @@ const ReportsPage = () => {
         </div>
       )}
 
+      {/* محتوى تبويب الموردين وجهات الصرف */}
       {tab === 'entities' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
