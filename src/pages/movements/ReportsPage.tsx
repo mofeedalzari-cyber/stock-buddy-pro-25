@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (نسخة مستقرة - جميع الأزرار تظهر)
+// ملف: src/pages/movements/ReportsPage.tsx (نسخة مصححة - أخطاء JSX)
 // ============================================================================
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -8,7 +8,7 @@ import {
   FileSpreadsheet, FileText, Package, ArrowDownCircle, ArrowUpCircle,
   AlertTriangle, Building2, RefreshCw, Users, Printer
 } from 'lucide-react';
-import { Button } from '@/components/ui/button'; // مستخدم في أماكن أخرى
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
@@ -287,7 +287,7 @@ const ReportsPage = () => {
     return true;
   };
 
-  // دوال التصدير (Excel, PDF) - تبقى كما هي
+  // دوال التصدير
   const exportProductsExcel = () => {
     if (!checkWarehouseSelected()) return;
     exportExcel(
@@ -406,7 +406,6 @@ const ReportsPage = () => {
     }
   };
 
-  // دالة الطباعة
   const printMovements = () => {
     exportMovementsPdf();
   };
@@ -639,7 +638,6 @@ const ReportsPage = () => {
       </div>
 
       {tab === 'products' && (
-        // ... (منتجات - كما هو دون تغيير) ...
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {[
@@ -751,7 +749,6 @@ const ReportsPage = () => {
           </div>
 
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
-            {/* رأس الجدول مع الأزرار - استخدام أزرار عادية لضمان الظهور */}
             <div className="p-3 sm:p-4 border-b border-border">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-semibold text-foreground text-sm sm:text-base">
@@ -894,7 +891,6 @@ const ReportsPage = () => {
       )}
 
       {tab === 'warehouses' && (
-        // ... (مخازن - كما هو دون تغيير) ...
         <div className="space-y-4 sm:space-y-5">
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-5 border border-border shadow-card">
             <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-3 sm:mb-4">مقارنة المخازن</h3>
@@ -948,7 +944,6 @@ const ReportsPage = () => {
       )}
 
       {tab === 'low-stock' && (
-        // ... (منخفض المخزون - كما هو دون تغيير) ...
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center">
@@ -1015,7 +1010,6 @@ const ReportsPage = () => {
       )}
 
       {tab === 'entities' && (
-        // ... (الموردين وجهات الصرف - كما هو دون تغيير) ...
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center">
