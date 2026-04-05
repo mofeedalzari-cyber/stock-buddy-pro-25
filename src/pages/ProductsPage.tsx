@@ -15,7 +15,7 @@ const ProductsPage = () => {
     products, categories, warehouses, movements, 
     addProduct, updateProduct, deleteProduct, 
     getCategoryName, getWarehouseName, refreshAll,
-    units, getUnitName
+    units, getUnitName, addMovement
   } = useWarehouse();
   const { toast } = useToast();
   const { isAdmin } = useAuth();
@@ -35,6 +35,10 @@ const ProductsPage = () => {
     display_unit_id: '',
     pack_size: 1
   });
+  // حقول الكمية الابتدائية والمخزن
+  const [initialQuantity, setInitialQuantity] = useState(0);
+  const [initialWarehouseId, setInitialWarehouseId] = useState('');
+  
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -86,7 +90,6 @@ const ProductsPage = () => {
     return whNames.join('، ') || '-';
   };
 
-  // ✅ الكمية المعروضة (محولة إلى الوحدة المعروضة) – تستخدم للتحذير فقط
   const getDisplayQty = (product: Product) => {
     const totalBaseQty = selectedWarehouse 
       ? getWarehouseQty(product.id, selectedWarehouse) 
@@ -98,13 +101,11 @@ const ProductsPage = () => {
     return totalBaseQty;
   };
 
-  // ✅ صيغة العرض المختلطة (مثال: 1 كيس و 25 كيلو)
   const getFormattedQuantity = (product: Product): string => {
     const totalBaseQty = selectedWarehouse 
       ? getWarehouseQty(product.id, selectedWarehouse) 
       : getProductTotalQty(product.id);
     
-    // إذا لم تكن هناك وحدة معروضة أو حجم العبوة = 1، نعرض الكمية العادية
     if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
       return `${totalBaseQty}`;
     }
@@ -124,7 +125,6 @@ const ProductsPage = () => {
     return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
   };
 
-  // ✅ الحصول على نمط اللون بناءً على الكمية المعروضة (قيمة عشرية)
   const getQuantityStyle = (product: Product, qty: number) => {
     const threshold = product.min_quantity ?? 2;
     const displayThreshold = product.display_unit_id && product.pack_size && product.pack_size > 1
@@ -194,11 +194,9 @@ const ProductsPage = () => {
   const generateCode = () => `P-${Date.now()}`;
   const generateBarcode = () => `${Math.floor(100000 + Math.random() * 900000)}`;
 
-  // ========== الحصول على الوحدات ==========
   const baseUnits = units.filter(u => u.is_base_unit === true);
   const displayUnits = units.filter(u => u.is_base_unit === false);
 
-  // ========== فتح وإغلاق الحوارات ==========
   const openAdd = () => {
     setEditing(null);
     const defaultBaseUnit = baseUnits.find(u => u.name === 'قطعة')?.id || '';
@@ -215,6 +213,8 @@ const ProductsPage = () => {
       display_unit_id: defaultDisplayUnit,
       pack_size: 1
     });
+    setInitialQuantity(0);
+    setInitialWarehouseId(warehouses[0]?.id || '');
     setDialogOpen(true);
   };
 
@@ -232,6 +232,8 @@ const ProductsPage = () => {
       display_unit_id: p.display_unit_id || '',
       pack_size: p.pack_size ?? 1
     });
+    setInitialQuantity(0);
+    setInitialWarehouseId('');
     setDialogOpen(true);
   };
 
@@ -264,7 +266,7 @@ const ProductsPage = () => {
       await refreshAll();
       toast({ title: 'تم التعديل', description: 'تم تعديل المنتج بنجاح' });
     } else {
-      await addProduct({
+      const newProduct = await addProduct({
         name: form.name,
         code: form.code,
         barcode: form.barcode,
@@ -278,6 +280,21 @@ const ProductsPage = () => {
         display_unit_id: form.display_unit_id,
         pack_size: form.pack_size
       });
+      
+      if (initialQuantity > 0 && initialWarehouseId && newProduct?.id) {
+        await addMovement({
+          type: 'in',
+          date: new Date().toISOString(),
+          warehouse_id: initialWarehouseId,
+          product_id: newProduct.id,
+          quantity: initialQuantity,
+          notes: 'رصيد افتتاحي',
+          user_id: undefined,
+          items: undefined
+        });
+        toast({ title: 'تم', description: `تم إضافة ${initialQuantity} ${getUnitName(form.base_unit_id || form.unit)} إلى المخزن` });
+      }
+      
       await refreshAll();
       toast({ title: 'تم الإضافة', description: 'تم إضافة المنتج بنجاح' });
     }
@@ -301,7 +318,6 @@ const ProductsPage = () => {
     setDeletingProduct(null);
   };
 
-  // ========== عرض معلومات العبوة ==========
   const getPackInfo = () => {
     if (!form.display_unit_id || !form.base_unit_id) return '';
     const displayUnit = units.find(u => u.id === form.display_unit_id);
@@ -312,7 +328,6 @@ const ProductsPage = () => {
     return '';
   };
 
-  // ========== بطاقة المنتج للجوال ==========
   const MobileCard = ({ p }: { p: Product }) => {
     const qty = getDisplayQty(p);
     const qtyStyle = getQuantityStyle(p, qty);
@@ -411,7 +426,7 @@ const ProductsPage = () => {
                 <th className="text-right p-3 font-semibold text-foreground">حد التنبيه</th>
                 {!selectedWarehouse && <th className="text-right p-3 font-semibold text-foreground hidden lg:table-cell">المخازن</th>}
                 <th className="text-center p-3 font-semibold text-foreground">إجراءات</th>
-               </tr>
+              </tr>
             </thead>
             <tbody>
               {filtered.map(p => {
@@ -552,6 +567,37 @@ const ProductsPage = () => {
               <Label className="text-xs sm:text-sm">الوصف</Label>
               <Input placeholder="أدخل وصف المنتج" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             </div>
+
+            {/* حقول الكمية الابتدائية - تظهر فقط عند الإضافة */}
+            {!editing && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs sm:text-sm">المخزن (للرصيد الافتتاحي)</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={initialWarehouseId}
+                    onChange={e => setInitialWarehouseId(e.target.value)}
+                  >
+                    <option value="">اختر المخزن</option>
+                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs sm:text-sm">الكمية الابتدائية (بالوحدة الأساسية)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={initialQuantity}
+                    onChange={e => setInitialQuantity(Number(e.target.value))}
+                    placeholder="مثال: 100"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    الكمية التي ستدخل المخزن مباشرة بعد إضافة المنتج (تسجيل حركة دخول تلقائية).
+                  </p>
+                </div>
+              </>
+            )}
 
             <Button onClick={handleSave} className="gradient-primary border-0 mt-1 text-sm">
               {editing ? 'تحديث' : 'إضافة'}
