@@ -664,34 +664,26 @@ const ReportsPage = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
+<div className="overflow-x-auto">
+  <table className="w-full text-xs sm:text-sm min-w-[600px]">
+    <thead>
+      <tr className="bg-secondary/50 border-b border-border">
+        <th className="text-right p-2 sm:p-3 font-semibold">م</th>
+        <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+        <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
+        <th className="text-right p-2 sm:p-3 font-semibold">الصنف</th>
+        <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
+        <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
+        <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
+        <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+      </tr>
+    </thead>
+    <tbody>
+      {/* هنا تبدأ إضافة الصفوف الخاصة بالبيانات */}
+    </tbody>
+  </table>
+</div>
 
-          <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
-            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2">
-              <h3 className="font-semibold text-foreground text-sm sm:text-base">جدول المنتجات</h3>
-              <div className="flex gap-1.5 sm:gap-2 shrink-0">
-                <Button size="sm" variant="outline" onClick={exportProductsExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-                  <FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />Excel
-                </Button>
-                <Button size="sm" variant="outline" onClick={exportProductsPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-                  <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />PDF
-                </Button>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs sm:text-sm min-w-[600px]">
-                <thead>
-                  <tr className="bg-secondary/50 border-b border-border">
-                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">الصنف</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  </table>
-                </thead>
-                <tbody>
                   {filteredProducts.map((p, i) => {
                     const qty = getDisplayQty(p);
                     const styleClass = qty === 0 ? 'bg-destructive/10 text-destructive' : (qty <= 10 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success');
