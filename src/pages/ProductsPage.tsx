@@ -15,7 +15,7 @@ const ProductsPage = () => {
     products, categories, warehouses, movements, 
     addProduct, updateProduct, deleteProduct, 
     getCategoryName, getWarehouseName, refreshAll,
-    units, getUnitName, addMovement
+    units, getUnitName, addMovement, suppliers
   } = useWarehouse();
   const { toast } = useToast();
   const { isAdmin } = useAuth();
@@ -266,7 +266,8 @@ const ProductsPage = () => {
       await refreshAll();
       toast({ title: 'تم التعديل', description: 'تم تعديل المنتج بنجاح' });
     } else {
-      const newProduct = await addProduct({
+      // إضافة المنتج أولاً
+      await addProduct({
         name: form.name,
         code: form.code,
         barcode: form.barcode,
@@ -281,18 +282,35 @@ const ProductsPage = () => {
         pack_size: form.pack_size
       });
       
-      if (initialQuantity > 0 && initialWarehouseId && newProduct?.id) {
-        await addMovement({
-          type: 'in',
-          date: new Date().toISOString(),
-          warehouse_id: initialWarehouseId,
-          product_id: newProduct.id,
-          quantity: initialQuantity,
-          notes: 'رصيد افتتاحي',
-          user_id: undefined,
-          items: undefined
-        });
-        toast({ title: 'تم', description: `تم إضافة ${initialQuantity} ${getUnitName(form.base_unit_id || form.unit)} إلى المخزن` });
+      // بعد إضافة المنتج، نبحث عن المنتج المضاف حديثاً (آخر منتج بنفس الاسم)
+      const addedProduct = products.find(p => p.name === form.name && p.code === form.code);
+      
+      if (initialQuantity > 0 && initialWarehouseId && addedProduct?.id) {
+        // البحث عن مورد افتراضي للرصيد الافتتاحي
+        const openingSupplier = suppliers.find(s => s.name === 'الرصيد الافتتاحي' || s.name === 'رصيد افتتاحي');
+        if (!openingSupplier) {
+          toast({ 
+            title: 'تنبيه', 
+            description: 'لم يتم إضافة الحركة: لا يوجد مورد باسم "الرصيد الافتتاحي". يرجى إنشاؤه أولاً.', 
+            variant: 'destructive' 
+          });
+        } else {
+          await addMovement({
+            type: 'in',
+            date: new Date().toISOString(),
+            warehouse_id: initialWarehouseId,
+            entity_id: openingSupplier.id,
+            entity_type: 'supplier',
+            product_id: addedProduct.id,
+            quantity: initialQuantity,
+            unit: form.unit,
+            notes: 'رصيد افتتاحي',
+            unit_id: form.base_unit_id || undefined,
+            display_quantity: null,
+            display_unit_id: null
+          });
+          toast({ title: 'تم', description: `تم إضافة ${initialQuantity} ${getUnitName(form.base_unit_id || form.unit)} إلى المخزن` });
+        }
       }
       
       await refreshAll();
