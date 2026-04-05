@@ -481,15 +481,27 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, toast, fetchAll, updatePendingCount]);
 
-  // مزامنة تلقائية عند عودة الاتصال
+  // حفظ مرجع دالة المزامنة لتجنب إعادة تشغيل التأثير
+  const syncFnRef = useRef(syncOfflineData);
+  syncFnRef.current = syncOfflineData;
+
+  // مزامنة تلقائية عند عودة الاتصال (مرة واحدة فقط)
+  const hasSyncedRef = useRef(false);
   useEffect(() => {
-    if (isOnline && user) {
+    if (isOnline && user && !hasSyncedRef.current) {
+      hasSyncedRef.current = true;
       const timer = setTimeout(() => {
-        syncOfflineData();
+        syncFnRef.current().finally(() => {
+          // السماح بإعادة المزامنة إذا انقطع الاتصال مرة أخرى
+          setTimeout(() => { hasSyncedRef.current = false; }, 5000);
+        });
       }, 2000);
-      return () => clearTimeout(timer);
+      return () => { clearTimeout(timer); hasSyncedRef.current = false; };
     }
-  }, [isOnline, user, syncOfflineData]);
+    if (!isOnline) {
+      hasSyncedRef.current = false;
+    }
+  }, [isOnline, user]);
 
   // ========== دوال المنتجات ==========
   const addProduct = useCallback(async (p: Omit<Product, 'id' | 'created_at' | 'created_by'>) => {
