@@ -282,7 +282,7 @@ const ProductsPage = () => {
         pack_size: form.pack_size
       });
       
-      // بعد إضافة المنتج، نبحث عن المنتج المضاف حديثاً (آخر منتج بنفس الاسم)
+      // بعد إضافة المنتج، نبحث عن المنتج المضاف حديثاً (آخر منتج بنفس الاسم والكود)
       const addedProduct = products.find(p => p.name === form.name && p.code === form.code);
       
       if (initialQuantity > 0 && initialWarehouseId && addedProduct?.id) {
@@ -586,7 +586,7 @@ const ProductsPage = () => {
               <Input placeholder="أدخل وصف المنتج" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             </div>
 
-            {/* حقول الكمية الابتدائية - تظهر فقط عند الإضافة */}
+            {/* ✅ حقول الكمية الابتدائية - تظهر فقط عند الإضافة */}
             {!editing && (
               <>
                 <div className="space-y-1.5">
@@ -611,7 +611,7 @@ const ProductsPage = () => {
                     placeholder="مثال: 100"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    الكمية التي ستدخل المخزن مباشرة بعد إضافة المنتج (تسجيل حركة دخول تلقائية).
+                    الكمية الموجودة في المخزن عند إضافة المنتج (سيتم تسجيلها كحركة دخول تلقائية).
                   </p>
                 </div>
               </>
