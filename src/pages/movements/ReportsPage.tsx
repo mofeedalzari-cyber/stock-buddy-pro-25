@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (محدث - مع إضافة زر الطباعة في الحركات)
+// ملف: src/pages/movements/ReportsPage.tsx (نسخة مستقرة - جميع الأزرار تظهر)
 // ============================================================================
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -8,12 +8,11 @@ import {
   FileSpreadsheet, FileText, Package, ArrowDownCircle, ArrowUpCircle,
   AlertTriangle, Building2, RefreshCw, Users, Printer
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button'; // مستخدم في أماكن أخرى
 import { Input } from '@/components/ui/input';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import {
-  COLORS,
   getWarehouseQty,
   getProductTotalQty,
   getProductSuppliers,
@@ -288,7 +287,7 @@ const ReportsPage = () => {
     return true;
   };
 
-  // ========== دوال التصدير (مع الوحدات المعروضة) ==========
+  // دوال التصدير (Excel, PDF) - تبقى كما هي
   const exportProductsExcel = () => {
     if (!checkWarehouseSelected()) return;
     exportExcel(
@@ -407,9 +406,9 @@ const ReportsPage = () => {
     }
   };
 
-  // دالة الطباعة المباشرة (تستدعي نفس exportMovementsPdf ولكن يمكن تخصيصها)
+  // دالة الطباعة
   const printMovements = () => {
-    exportMovementsPdf(); // نفس سلوك PDF
+    exportMovementsPdf();
   };
 
   const exportWarehousesExcel = () => {
@@ -640,6 +639,7 @@ const ReportsPage = () => {
       </div>
 
       {tab === 'products' && (
+        // ... (منتجات - كما هو دون تغيير) ...
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {[
@@ -691,7 +691,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  </tr>
+                  </table>
                 </thead>
                 <tbody>
                   {filteredProducts.map((p, i) => {
@@ -713,7 +713,7 @@ const ReportsPage = () => {
                         <td className="p-2 sm:p-3 text-muted-foreground">
                           {p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة')}
                         </td>
-                       </tr>
+                      </tr>
                     );
                   })}
                 </tbody>
@@ -751,27 +751,90 @@ const ReportsPage = () => {
           </div>
 
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between p-3 sm:p-4 border-b border-border gap-2">
-              <h3 className="font-semibold text-foreground text-sm sm:text-base">
-                جدول الحركات ({groupByProduct ? groupedByProduct.length : filteredExpanded.length} عنصر)
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant={!groupByProduct ? "default" : "outline"} onClick={() => setGroupByProduct(false)}>
-                  عرض تفصيلي
-                </Button>
-                <Button size="sm" variant={groupByProduct ? "default" : "outline"} onClick={() => setGroupByProduct(true)}>
-                  عرض ملخص
-                </Button>
-                <Button size="sm" variant="outline" onClick={exportMovementsExcel} className="gap-1">
-                  <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
-                </Button>
-                <Button size="sm" variant="outline" onClick={exportMovementsPdf} className="gap-1">
-                  <FileText className="w-3.5 h-3.5" /> PDF
-                </Button>
-                {/* زر الطباعة الجديد */}
-                <Button size="sm" variant="outline" onClick={printMovements} className="gap-1">
-                  <Printer className="w-3.5 h-3.5" /> طباعة
-                </Button>
+            {/* رأس الجدول مع الأزرار - استخدام أزرار عادية لضمان الظهور */}
+            <div className="p-3 sm:p-4 border-b border-border">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                  جدول الحركات ({groupByProduct ? groupedByProduct.length : filteredExpanded.length} عنصر)
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setGroupByProduct(false)}
+                    style={{
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      borderRadius: '6px',
+                      border: '1px solid #ccc',
+                      background: !groupByProduct ? '#3b82f6' : 'white',
+                      color: !groupByProduct ? 'white' : 'black',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    عرض تفصيلي
+                  </button>
+                  <button
+                    onClick={() => setGroupByProduct(true)}
+                    style={{
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      borderRadius: '6px',
+                      border: '1px solid #ccc',
+                      background: groupByProduct ? '#3b82f6' : 'white',
+                      color: groupByProduct ? 'white' : 'black',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    عرض ملخص
+                  </button>
+                  <button
+                    onClick={exportMovementsExcel}
+                    style={{
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      borderRadius: '6px',
+                      border: '1px solid #ccc',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                  </button>
+                  <button
+                    onClick={exportMovementsPdf}
+                    style={{
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      borderRadius: '6px',
+                      border: '1px solid #ccc',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <FileText className="w-3.5 h-3.5" /> PDF
+                  </button>
+                  <button
+                    onClick={printMovements}
+                    style={{
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      borderRadius: '6px',
+                      border: '1px solid #ccc',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Printer className="w-3.5 h-3.5" /> طباعة
+                  </button>
+                </div>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -787,26 +850,23 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                   </tr>
+                  </tr>
                 </thead>
                 <tbody>
                   {groupByProduct ? (
-                    groupedByProduct.map((item, i) => {
-                      const netQty = item.netQty;
-                      return (
-                        <tr key={item.productId} className="border-b border-border hover:bg-secondary/30">
-                          <td className="p-2 sm:p-3">{i + 1}</td>
-                          <td className="p-2 sm:p-3 text-muted-foreground">-</td>
-                          <td className="p-2 sm:p-3">صافي</td>
-                          <td className="p-2 sm:p-3 font-medium">{item.productName}</td>
-                          <td className="p-2 sm:p-3 font-bold">{getFormattedNetQty(item.productId, netQty)}</td>
-                          <td className="p-2 sm:p-3 text-muted-foreground">-</td>
-                          <td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(selectedWarehouse)}</td>
-                          <td className="p-2 sm:p-3">-</td>
-                          <td className="p-2 sm:p-3">-</td>
-                        </tr>
-                      );
-                    })
+                    groupedByProduct.map((item, i) => (
+                      <tr key={item.productId} className="border-b border-border hover:bg-secondary/30">
+                        <td className="p-2 sm:p-3">{i + 1}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">-</td>
+                        <td className="p-2 sm:p-3">صافي</td>
+                        <td className="p-2 sm:p-3 font-medium">{item.productName}</td>
+                        <td className="p-2 sm:p-3 font-bold">{getFormattedNetQty(item.productId, item.netQty)}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">-</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(selectedWarehouse)}</td>
+                        <td className="p-2 sm:p-3">-</td>
+                        <td className="p-2 sm:p-3">-</td>
+                      </tr>
+                    ))
                   ) : (
                     filteredExpanded.map((m, i) => (
                       <tr key={m.itemId} className="border-b border-border hover:bg-secondary/30">
@@ -834,6 +894,7 @@ const ReportsPage = () => {
       )}
 
       {tab === 'warehouses' && (
+        // ... (مخازن - كما هو دون تغيير) ...
         <div className="space-y-4 sm:space-y-5">
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-5 border border-border shadow-card">
             <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-3 sm:mb-4">مقارنة المخازن</h3>
@@ -868,7 +929,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                   </tr>
+                  </tr>
                 </thead>
                 <tbody>
                   {warehouseStockDetails.map((d, i) => (
@@ -887,6 +948,7 @@ const ReportsPage = () => {
       )}
 
       {tab === 'low-stock' && (
+        // ... (منخفض المخزون - كما هو دون تغيير) ...
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center">
@@ -924,7 +986,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الحالة</th>
-                   </tr>
+                  </tr>
                 </thead>
                 <tbody>
                   {lowStock.map((p, i) => {
@@ -953,6 +1015,7 @@ const ReportsPage = () => {
       )}
 
       {tab === 'entities' && (
+        // ... (الموردين وجهات الصرف - كما هو دون تغيير) ...
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center">
@@ -985,7 +1048,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 font-semibold">الكمية</th>
                     <th className="text-right p-2 font-semibold">الوحدة</th>
                     <th className="text-right p-2 font-semibold">المخزن</th>
-                   </tr>
+                  </tr>
                 </thead>
                 <tbody>
                   {supplierItems.map((item, idx) => (
@@ -1027,7 +1090,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 font-semibold">الوحدة</th>
                     <th className="text-right p-2 font-semibold">المخزن</th>
                     <th className="text-right p-2 font-semibold">النوع</th>
-                   </tr>
+                  </tr>
                 </thead>
                 <tbody>
                   {clientItems.map((item, idx) => (
