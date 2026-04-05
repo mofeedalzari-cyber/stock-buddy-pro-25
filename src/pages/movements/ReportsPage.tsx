@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (محدث - دعم الصيغة المختلطة للكميات في الحركات التفصيلية)
+// ملف: src/pages/movements/ReportsPage.tsx (محدث - مع إضافة زر الطباعة في الحركات)
 // ============================================================================
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -45,16 +45,12 @@ const ReportsPage = () => {
   const [dateTo, setDateTo] = useState('');
   const [movementFilter, setMovementFilter] = useState<'all' | 'in' | 'out'>('all');
   const [selectedWarehouse, setSelectedWarehouse] = useState('');
-
-  // ========== حالة التبديل بين عرض تفصيلي وملخص حسب المنتج في الحركات ==========
   const [groupByProduct, setGroupByProduct] = useState(false);
 
-  // الحصول على اسم مدير المخزن المحدد
   const warehouseManager = selectedWarehouse
     ? warehouses.find(w => w.id === selectedWarehouse)?.manager || 'غير محدد'
     : 'غير محدد';
 
-  // ========== دوال محسنة لتحويل الكمية إلى الوحدة المعروضة ==========
   const getDisplayQty = (product: Product) => {
     const totalBaseQty = selectedWarehouse
       ? getWarehouseQty(movements, product.id, selectedWarehouse)
@@ -66,7 +62,6 @@ const ReportsPage = () => {
     return totalBaseQty;
   };
 
-  // ✅ صيغة مختلطة للمنتجات (مثال: 1 كيس و 25 كيلو)
   const getFormattedQuantityForProduct = (product: Product): string => {
     const totalBaseQty = selectedWarehouse
       ? getWarehouseQty(movements, product.id, selectedWarehouse)
@@ -87,26 +82,21 @@ const ReportsPage = () => {
     return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
   };
 
-  // الكمية المعروضة للحركة (display_quantity) أو الأصلية
   const getMovementDisplayQty = (movement: any) => {
     return movement.display_quantity ?? movement.quantity ?? 0;
   };
 
-  // الوحدة المعروضة للحركة (display_unit_id) أو الأصلية
   const getMovementDisplayUnit = (movement: any) => {
     const unitId = movement.display_unit_id ?? movement.unit_id;
     if (unitId) return getUnitName(unitId);
     return movement.unit || 'قطعة';
   };
 
-  // ✅ دالة عرض كمية الحركة كما تم إدخالها (بالوحدة الأصلية: كيلو أو كيس)
   const getFormattedMovementQty = (movement: any) => {
-    // إذا كانت هناك كمية عرض (display_quantity) ووحدة عرض، نعرضها مباشرة
     if (movement.display_quantity != null && movement.display_unit_id) {
       const displayUnitName = getUnitName(movement.display_unit_id);
       return `${movement.display_quantity} ${displayUnitName}`;
     }
-    // وإلا نعرض الكمية الأساسية مع وحدتها
     const qty = movement.quantity ?? 0;
     const unitId = movement.unit_id;
     if (unitId) {
@@ -115,7 +105,6 @@ const ReportsPage = () => {
     return `${qty} ${movement.unit || 'قطعة'}`;
   };
 
-  // صيغة مختلطة للكمية الصافية لمنتج معين (تُستخدم في ملخص الحركات)
   const getFormattedNetQty = (productId: string, netQty: number) => {
     const product = products.find(p => p.id === productId);
     if (!product) return `${netQty}`;
@@ -156,7 +145,6 @@ const ReportsPage = () => {
     .filter(m => !selectedWarehouse || m.warehouse_id === selectedWarehouse)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  // تجميع الحركات حسب المنتج (صافي الكمية)
   const groupedByProduct = useMemo(() => {
     const map = new Map<string, { productId: string; productName: string; netQty: number }>();
     filteredExpanded.forEach(m => {
@@ -362,7 +350,7 @@ const ReportsPage = () => {
           'التاريخ': m.date,
           'النوع': m.type === 'in' ? 'وارد' : 'صادر',
           'المنتج': m.productName,
-          'الكمية': getFormattedMovementQty(m),   // ✅ استخدام الصيغة المختلطة
+          'الكمية': getFormattedMovementQty(m),
           'الوحدة': getMovementDisplayUnit(m),
           'المخزن': getWarehouseName(m.warehouse_id),
           'المورد': m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-',
@@ -400,7 +388,7 @@ const ReportsPage = () => {
         m.date,
         m.type === 'in' ? 'وارد' : 'صادر',
         m.productName,
-        getFormattedMovementQty(m),   // ✅ استخدام الصيغة المختلطة
+        getFormattedMovementQty(m),
         getMovementDisplayUnit(m),
         getWarehouseName(m.warehouse_id),
         m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-',
@@ -417,6 +405,11 @@ const ReportsPage = () => {
       );
       printPdfFromHtml(html, 'تقرير_الحركات', toast);
     }
+  };
+
+  // دالة الطباعة المباشرة (تستدعي نفس exportMovementsPdf ولكن يمكن تخصيصها)
+  const printMovements = () => {
+    exportMovementsPdf(); // نفس سلوك PDF
   };
 
   const exportWarehousesExcel = () => {
@@ -528,7 +521,6 @@ const ReportsPage = () => {
     printPdfFromHtml(html, 'تقرير_الموردين_وجهات_الصرف', toast);
   };
 
-  // ========== دوال طباعة التقارير المفصلة ==========
   const printSuppliersReport = async () => {
     if (!checkWarehouseSelected()) return;
     const html = buildSuppliersReportHtml(
@@ -565,7 +557,7 @@ const ReportsPage = () => {
       String(idx + 1),
       getSupplierName(item.entity_id),
       item.productName,
-      getFormattedMovementQty(item),   // ✅ استخدام الصيغة المختلطة
+      getFormattedMovementQty(item),
       getMovementDisplayUnit(item),
       getWarehouseName(item.warehouse_id),
     ]);
@@ -587,7 +579,7 @@ const ReportsPage = () => {
       String(idx + 1),
       getClientName(item.entity_id),
       item.productName,
-      getFormattedMovementQty(item),   // ✅ استخدام الصيغة المختلطة
+      getFormattedMovementQty(item),
       getMovementDisplayUnit(item),
       getWarehouseName(item.warehouse_id),
       'منصرف',
@@ -721,7 +713,7 @@ const ReportsPage = () => {
                         <td className="p-2 sm:p-3 text-muted-foreground">
                           {p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة')}
                         </td>
-                      </tr>
+                       </tr>
                     );
                   })}
                 </tbody>
@@ -757,26 +749,29 @@ const ReportsPage = () => {
               </div>
             </div>
           </div>
+
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
-            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2 flex-wrap">
+            <div className="flex flex-wrap items-center justify-between p-3 sm:p-4 border-b border-border gap-2">
               <h3 className="font-semibold text-foreground text-sm sm:text-base">
                 جدول الحركات ({groupByProduct ? groupedByProduct.length : filteredExpanded.length} عنصر)
               </h3>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant={!groupByProduct ? "default" : "outline"} onClick={() => setGroupByProduct(false)}>
                   عرض تفصيلي
                 </Button>
                 <Button size="sm" variant={groupByProduct ? "default" : "outline"} onClick={() => setGroupByProduct(true)}>
                   عرض ملخص
                 </Button>
-                <div className="flex gap-1.5 sm:gap-2">
-                  <Button size="sm" variant="outline" onClick={exportMovementsExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-                    <FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />Excel
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={exportMovementsPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-                    <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />PDF
-                  </Button>
-                </div>
+                <Button size="sm" variant="outline" onClick={exportMovementsExcel} className="gap-1">
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                </Button>
+                <Button size="sm" variant="outline" onClick={exportMovementsPdf} className="gap-1">
+                  <FileText className="w-3.5 h-3.5" /> PDF
+                </Button>
+                {/* زر الطباعة الجديد */}
+                <Button size="sm" variant="outline" onClick={printMovements} className="gap-1">
+                  <Printer className="w-3.5 h-3.5" /> طباعة
+                </Button>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -792,7 +787,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {groupByProduct ? (
@@ -823,7 +818,7 @@ const ReportsPage = () => {
                           }`}>{m.type === 'in' ? 'وارد' : 'صادر'}</span>
                         </td>
                         <td className="p-2 sm:p-3 font-medium">{m.productName}</td>
-                        <td className="p-2 sm:p-3 font-bold">{getFormattedMovementQty(m)}</td> {/* ✅ هنا */}
+                        <td className="p-2 sm:p-3 font-bold">{getFormattedMovementQty(m)}</td>
                         <td className="p-2 sm:p-3 text-muted-foreground">{getMovementDisplayUnit(m)}</td>
                         <td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(m.warehouse_id)}</td>
                         <td className="p-2 sm:p-3 text-muted-foreground">{m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-'}</td>
@@ -873,16 +868,14 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {warehouseStockDetails.map((d, i) => (
                     <tr key={i} className="border-b border-border last:border-0 hover:bg-secondary/30">
                       <td className="p-2 sm:p-3 font-medium">{d.productName}</td>
                       <td className="p-2 sm:p-3">{d.warehouseName}</td>
-                      <td className="p-2 sm:p-3 font-bold">
-                        {getFormattedQuantityForProduct(d.product)}
-                      </td>
+                      <td className="p-2 sm:p-3 font-bold">{getFormattedQuantityForProduct(d.product)}</td>
                       <td className="p-2 sm:p-3">{d.unit}</td>
                     </tr>
                   ))}
@@ -931,7 +924,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الحالة</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {lowStock.map((p, i) => {
@@ -992,7 +985,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 font-semibold">الكمية</th>
                     <th className="text-right p-2 font-semibold">الوحدة</th>
                     <th className="text-right p-2 font-semibold">المخزن</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {supplierItems.map((item, idx) => (
@@ -1034,7 +1027,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 font-semibold">الوحدة</th>
                     <th className="text-right p-2 font-semibold">المخزن</th>
                     <th className="text-right p-2 font-semibold">النوع</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {clientItems.map((item, idx) => (
@@ -1046,9 +1039,7 @@ const ReportsPage = () => {
                       <td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td>
                       <td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td>
                       <td className="p-2">
-                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive">
-                          منصرف
-                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive">منصرف</span>
                       </td>
                     </tr>
                   ))}
