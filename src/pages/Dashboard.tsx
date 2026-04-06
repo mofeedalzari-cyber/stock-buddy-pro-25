@@ -398,7 +398,11 @@ const Dashboard = () => {
                       )}
                       <span className="text-xs sm:text-sm text-foreground">{product?.name || 'متعددة'}</span>
                     </div>
-                    <span className="text-xs sm:text-sm font-bold">{m.quantity || (m.items?.length + ' أصناف')}</span>
+                    <span className="text-xs sm:text-sm font-bold">
+                      {m.product_id && products.find(pr => pr.id === m.product_id)
+                        ? getDisplayInfo(products.find(pr => pr.id === m.product_id)!, m.quantity || 0)
+                        : (m.items?.length + ' أصناف')}
+                    </span>
                   </div>
                 );
               })
