@@ -301,14 +301,8 @@ const Dashboard = () => {
               <tfoot>
                 <tr className="border-t-2 border-primary/30 bg-muted/20">
                   <td className="py-2.5 px-2 sm:px-3 font-bold text-foreground">الإجمالي</td>
-                  <td className="text-center py-2.5 px-2 sm:px-3 font-bold text-success">
-                    {filteredProducts.reduce((s, p) => s + p.inQty, 0)}
-                  </td>
-                  <td className="text-center py-2.5 px-2 sm:px-3 font-bold text-destructive">
-                    {filteredProducts.reduce((s, p) => s + p.outQty, 0)}
-                  </td>
-                  <td className="text-center py-2.5 px-2 sm:px-3 font-bold text-primary">
-                    {filteredProducts.reduce((s, p) => s + p.stock, 0)}
+                  <td className="text-center py-2.5 px-2 sm:px-3 font-bold text-success" colSpan={3}>
+                    إجمالي بالوحدات الأساسية: وارد {filteredProducts.reduce((s, p) => s + p.inQty, 0)} | صادر {filteredProducts.reduce((s, p) => s + p.outQty, 0)} | رصيد {filteredProducts.reduce((s, p) => s + p.stock, 0)}
                   </td>
                   <td></td>
                 </tr>
