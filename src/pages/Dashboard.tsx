@@ -425,7 +425,7 @@ const Dashboard = () => {
                 <div key={p.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <span className="text-xs sm:text-sm text-foreground">{p.name}</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/20 text-warning font-medium">
-                    {getActualQty(p)} (الحد: {getMinQuantity(p)})
+                    {getDisplayInfo(p, getActualQty(p))} (الحد: {getDisplayInfo(p, getMinQuantity(p))})
                   </span>
                 </div>
               ))}
