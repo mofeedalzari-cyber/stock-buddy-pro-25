@@ -147,7 +147,7 @@ interface WarehouseContextType {
   pendingCount: number;
   syncing: boolean;
   syncOfflineData: () => Promise<void>;
-  addProduct: (p: Omit<Product, 'id' | 'created_at' | 'created_by'>) => Promise<void>;
+  addProduct: (p: Omit<Product, 'id' | 'created_at' | 'created_by'>) => Promise<Product | null>;
   updateProduct: (p: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<boolean>;
   addCategory: (c: Omit<Category, 'id' | 'created_at' | 'created_by'>) => Promise<void>;
