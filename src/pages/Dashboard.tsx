@@ -174,7 +174,7 @@ const Dashboard = () => {
               <div className="flex flex-wrap gap-1.5">
                 {criticalStock.slice(0, 5).map(p => (
                   <span key={p.id} className={`text-[10px] px-2 py-0.5 rounded-full ${getStockAlertColor(p)}`}>
-                    {p.name}: {getActualQty(p)} (الحد: {getMinQuantity(p)})
+                    {p.name}: {getDisplayInfo(p, getActualQty(p))} (الحد: {getDisplayInfo(p, getMinQuantity(p))})
                   </span>
                 ))}
                 {criticalStock.length > 5 && (
