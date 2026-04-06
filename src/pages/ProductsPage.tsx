@@ -272,7 +272,7 @@ const ProductsPage = () => {
         toast({ title: 'تم التعديل', description: 'تم تعديل المنتج بنجاح' });
       } else {
         // إضافة المنتج
-        await addProduct({
+        const addedProduct = await addProduct({
           name: form.name,
           code: form.code,
           barcode: form.barcode,
@@ -286,12 +286,6 @@ const ProductsPage = () => {
           display_unit_id: form.display_unit_id,
           pack_size: form.pack_size
         });
-        
-        // تحديث البيانات للتأكد من ظهور المنتج الجديد
-        await refreshAll();
-        
-        // البحث عن المنتج المضاف (باستخدام الاسم والكود)
-        const addedProduct = products.find(p => p.name === form.name && p.code === form.code);
         
         // إضافة الكمية الافتتاحية كحركة دخول إذا توفرت البيانات
         // تحويل الكمية من الوحدة المعروضة إلى الوحدة الأساسية
