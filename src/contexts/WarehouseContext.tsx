@@ -504,10 +504,10 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
   }, [isOnline, user]);
 
   // ========== دوال المنتجات ==========
-  const addProduct = useCallback(async (p: Omit<Product, 'id' | 'created_at' | 'created_by'>) => {
+  const addProduct = useCallback(async (p: Omit<Product, 'id' | 'created_at' | 'created_by'>): Promise<Product | null> => {
     if (!user?.id) {
       showError('يجب تسجيل الدخول أولاً');
-      return;
+      return null;
     }
 
     if (!navigator.onLine) {
@@ -526,7 +526,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       addToQueue({ type: 'addProduct', data: offlineProduct });
       updatePendingCount();
       toast({ title: 'تم الحفظ محلياً', description: 'سيتم ترحيل البيانات عند عودة الإنترنت' });
-      return;
+      return offlineProduct;
     }
 
     const { data, error } = await supabase
@@ -545,11 +545,14 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
 
     if (error) {
       showError(error.message);
-      return;
+      return null;
     }
     if (data) {
-      setProducts(prev => [...prev, data as unknown as Product]);
+      const product = data as unknown as Product;
+      setProducts(prev => [...prev, product]);
+      return product;
     }
+    return null;
   }, [user, updatePendingCount]);
 
   const updateProduct = useCallback(async (p: Product) => {
