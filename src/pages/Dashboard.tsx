@@ -174,7 +174,7 @@ const Dashboard = () => {
               <div className="flex flex-wrap gap-1.5">
                 {criticalStock.slice(0, 5).map(p => (
                   <span key={p.id} className={`text-[10px] px-2 py-0.5 rounded-full ${getStockAlertColor(p)}`}>
-                    {p.name}: {getActualQty(p)} (الحد: {getMinQuantity(p)})
+                    {p.name}: {getDisplayInfo(p, getActualQty(p))} (الحد: {getDisplayInfo(p, getMinQuantity(p))})
                   </span>
                 ))}
                 {criticalStock.length > 5 && (
@@ -301,14 +301,8 @@ const Dashboard = () => {
               <tfoot>
                 <tr className="border-t-2 border-primary/30 bg-muted/20">
                   <td className="py-2.5 px-2 sm:px-3 font-bold text-foreground">الإجمالي</td>
-                  <td className="text-center py-2.5 px-2 sm:px-3 font-bold text-success">
-                    {filteredProducts.reduce((s, p) => s + p.inQty, 0)}
-                  </td>
-                  <td className="text-center py-2.5 px-2 sm:px-3 font-bold text-destructive">
-                    {filteredProducts.reduce((s, p) => s + p.outQty, 0)}
-                  </td>
-                  <td className="text-center py-2.5 px-2 sm:px-3 font-bold text-primary">
-                    {filteredProducts.reduce((s, p) => s + p.stock, 0)}
+                  <td className="text-center py-2.5 px-2 sm:px-3 font-bold text-success" colSpan={3}>
+                    إجمالي بالوحدات الأساسية: وارد {filteredProducts.reduce((s, p) => s + p.inQty, 0)} | صادر {filteredProducts.reduce((s, p) => s + p.outQty, 0)} | رصيد {filteredProducts.reduce((s, p) => s + p.stock, 0)}
                   </td>
                   <td></td>
                 </tr>
@@ -398,7 +392,11 @@ const Dashboard = () => {
                       )}
                       <span className="text-xs sm:text-sm text-foreground">{product?.name || 'متعددة'}</span>
                     </div>
-                    <span className="text-xs sm:text-sm font-bold">{m.quantity || (m.items?.length + ' أصناف')}</span>
+                    <span className="text-xs sm:text-sm font-bold">
+                      {m.product_id && products.find(pr => pr.id === m.product_id)
+                        ? getDisplayInfo(products.find(pr => pr.id === m.product_id)!, m.quantity || 0)
+                        : (m.items?.length + ' أصناف')}
+                    </span>
                   </div>
                 );
               })
@@ -425,7 +423,7 @@ const Dashboard = () => {
                 <div key={p.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <span className="text-xs sm:text-sm text-foreground">{p.name}</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/20 text-warning font-medium">
-                    {getActualQty(p)} (الحد: {getMinQuantity(p)})
+                    {getDisplayInfo(p, getActualQty(p))} (الحد: {getDisplayInfo(p, getMinQuantity(p))})
                   </span>
                 </div>
               ))}
