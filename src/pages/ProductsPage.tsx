@@ -294,7 +294,12 @@ const ProductsPage = () => {
         const addedProduct = products.find(p => p.name === form.name && p.code === form.code);
         
         // إضافة الكمية الافتتاحية كحركة دخول إذا توفرت البيانات
-        if (initialQuantity > 0 && initialWarehouseId && addedProduct?.id) {
+        // تحويل الكمية من الوحدة المعروضة إلى الوحدة الأساسية
+        const baseQuantity = (form.display_unit_id && form.pack_size > 1)
+          ? initialQuantity * form.pack_size
+          : initialQuantity;
+        
+        if (baseQuantity > 0 && initialWarehouseId && addedProduct?.id) {
           const openingSupplier = suppliers.find(s => s.name === 'الرصيد الافتتاحي' || s.name === 'رصيد افتتاحي');
           if (!openingSupplier) {
             toast({ 
@@ -310,15 +315,15 @@ const ProductsPage = () => {
               entity_id: openingSupplier.id,
               entity_type: 'supplier',
               product_id: addedProduct.id,
-              quantity: initialQuantity,
+              quantity: baseQuantity,
               unit: form.unit,
               notes: 'رصيد افتتاحي (الكمية الموجودة حالياً في المخزن)',
               unit_id: form.base_unit_id || undefined,
-              display_quantity: null,
-              display_unit_id: null
+              display_quantity: initialQuantity,
+              display_unit_id: form.display_unit_id || null
             });
-            toast({ title: 'تم', description: `تم إضافة ${initialQuantity} ${getUnitName(form.base_unit_id || form.unit)} كرصيد افتتاحي للمنتج` });
-            // تحديث البيانات مرة أخرى لظهور الكمية
+            const displayUnitLabel = form.display_unit_id ? getUnitName(form.display_unit_id) : (form.unit || 'قطعة');
+            toast({ title: 'تم', description: `تم إضافة ${initialQuantity} ${displayUnitLabel} كرصيد افتتاحي للمنتج` });
             await refreshAll();
           }
         }
@@ -616,17 +621,28 @@ const ProductsPage = () => {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs sm:text-sm">الكمية الافتتاحية (الموجودة حالياً في المخزن)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={initialQuantity}
-                    onChange={e => setInitialQuantity(Number(e.target.value))}
-                    placeholder="مثال: 100"
-                  />
+                  <Label className="text-xs sm:text-sm">الكمية الافتتاحية (بالوحدة المعروضة)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={initialQuantity}
+                      onChange={e => setInitialQuantity(Number(e.target.value))}
+                      placeholder="مثال: 50"
+                      className="flex-1"
+                    />
+                    <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                      {form.display_unit_id ? getUnitName(form.display_unit_id) : (form.base_unit_id ? getUnitName(form.base_unit_id) : (form.unit || 'قطعة'))}
+                    </span>
+                  </div>
+                  {form.display_unit_id && form.pack_size > 1 && initialQuantity > 0 && (
+                    <p className="text-[10px] text-primary font-medium">
+                      = {initialQuantity * form.pack_size} {form.base_unit_id ? getUnitName(form.base_unit_id) : form.unit} (بالوحدة الأساسية)
+                    </p>
+                  )}
                   <p className="text-[10px] text-muted-foreground">
-                    الكمية الموجودة حالياً في المخزن لهذا المنتج. سيتم تسجيلها كحركة دخول (رصيد افتتاحي).
+                    الكمية الموجودة حالياً في المخزن. سيتم تسجيلها كحركة دخول (رصيد افتتاحي).
                   </p>
                 </div>
               </>
