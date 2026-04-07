@@ -146,6 +146,7 @@ const ClientsPage = () => {
           </div>
         </div>
         <div className="flex gap-1">
+          <button onClick={() => openEntitlements(c)} className="p-1.5 rounded-md hover:bg-accent text-accent-foreground" title="الاستحقاقات"><ClipboardCheck className="w-3.5 h-3.5" /></button>
           <button onClick={() => openEdit(c)} className="p-1.5 rounded-md hover:bg-primary/10 text-primary"><Pencil className="w-3.5 h-3.5" /></button>
           {isAdmin && <button onClick={() => confirmDelete(c)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>}
         </div>
