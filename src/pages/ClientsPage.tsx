@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 
 const ClientsPage = () => {
-  const { clients, addClient, updateClient, deleteClient, refreshAll } = useWarehouse();
+  const { clients, products, entitlements, addClient, updateClient, deleteClient, addEntitlement, updateEntitlement, deleteEntitlement, refreshAll, getUnitName } = useWarehouse();
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState('');
@@ -24,6 +24,11 @@ const ClientsPage = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // حالة إدارة الاستحقاقات
+  const [entitlementDialog, setEntitlementDialog] = useState(false);
+  const [entitlementClient, setEntitlementClient] = useState<Client | null>(null);
+  const [entForm, setEntForm] = useState({ product_id: '', monthly_quantity: '' });
 
   const filtered = clients.filter(c => c.name.includes(search) || c.phone.includes(search));
 
