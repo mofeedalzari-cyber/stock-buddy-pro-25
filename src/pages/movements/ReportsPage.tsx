@@ -595,12 +595,118 @@ const ReportsPage = () => {
     await printPdfFromHtml(html, 'تقرير_تفاصيل_جهات_الصرف', toast);
   };
 
+  // ========== حساب الاستحقاقات ==========
+  const [entitlementMonth, setEntitlementMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const entitlementReport = useMemo(() => {
+    const [year, month] = entitlementMonth.split('-').map(Number);
+    const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+    const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
+
+    return clients.flatMap(client => {
+      const clientEntitlements = entitlements.filter(e => e.client_id === client.id);
+      if (clientEntitlements.length === 0) return [];
+
+      return clientEntitlements.map(ent => {
+        const product = products.find(p => p.id === ent.product_id);
+        if (!product) return null;
+
+        // حساب المصروف الفعلي للشهر المحدد
+        const monthMovements = movements.filter(m =>
+          m.type === 'out' &&
+          m.entity_type === 'client' &&
+          m.entity_id === client.id &&
+          m.date >= monthStart &&
+          m.date < nextMonth &&
+          (!selectedWarehouse || m.warehouse_id === selectedWarehouse)
+        );
+
+        let actualQty = 0;
+        monthMovements.forEach(m => {
+          if (m.product_id === ent.product_id) {
+            actualQty += (m.display_quantity ?? m.quantity ?? 0);
+          }
+          if (m.items) {
+            m.items.forEach(item => {
+              if (item.product_id === ent.product_id) {
+                actualQty += (item.display_quantity ?? item.quantity ?? 0);
+              }
+            });
+          }
+        });
+
+        const exceeded = actualQty > ent.monthly_quantity;
+        const overAmount = exceeded ? actualQty - ent.monthly_quantity : 0;
+
+        return {
+          clientId: client.id,
+          clientName: client.name,
+          productId: ent.product_id,
+          productName: product.name,
+          entitlement: ent.monthly_quantity,
+          actual: actualQty,
+          remaining: Math.max(0, ent.monthly_quantity - actualQty),
+          exceeded,
+          overAmount,
+          unit: product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة'),
+        };
+      }).filter(Boolean);
+    });
+  }, [clients, entitlements, movements, products, entitlementMonth, selectedWarehouse, getUnitName]);
+
+  const exportEntitlementsPdf = () => {
+    if (!checkWarehouseSelected()) return;
+    const rows = entitlementReport.map((r: any, i: number) => [
+      String(i + 1),
+      r.clientName,
+      r.productName,
+      String(r.entitlement),
+      String(r.actual),
+      String(r.remaining),
+      r.exceeded ? String(r.overAmount) : '-',
+      r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق',
+      r.unit,
+    ]);
+    const html = buildSimplePdfHtml(
+      `تقرير الاستحقاقات - ${entitlementMonth}`,
+      ['م', 'جهة الصرف', 'المنتج', 'الاستحقاق', 'المصروف', 'المتبقي', 'الزيادة', 'الحالة', 'الوحدة'],
+      rows,
+      selectedWarehouse,
+      getWarehouseName,
+      warehouseManager,
+      displayName || '__________'
+    );
+    printPdfFromHtml(html, 'تقرير_الاستحقاقات', toast);
+  };
+
+  const exportEntitlementsExcel = () => {
+    if (!checkWarehouseSelected()) return;
+    exportExcel(
+      entitlementReport.map((r: any) => ({
+        'جهة الصرف': r.clientName,
+        'المنتج': r.productName,
+        'الاستحقاق الشهري': r.entitlement,
+        'المصروف الفعلي': r.actual,
+        'المتبقي': r.remaining,
+        'الزيادة': r.exceeded ? r.overAmount : 0,
+        'الحالة': r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق',
+        'الوحدة': r.unit,
+      })),
+      'الاستحقاقات',
+      'تقرير_الاستحقاقات'
+    );
+  };
+
   const tabs: { id: ReportTab; label: string; icon: any }[] = [
     { id: 'products', label: 'المنتجات', icon: Package },
     { id: 'movements', label: 'الحركات', icon: ArrowDownCircle },
     { id: 'warehouses', label: 'المخازن', icon: Building2 },
     { id: 'low-stock', label: 'المخزون المنخفض', icon: AlertTriangle },
     { id: 'entities', label: 'الموردين وجهات الصرف', icon: Users },
+    { id: 'entitlements', label: 'الاستحقاقات', icon: ClipboardCheck },
   ];
 
   return (
