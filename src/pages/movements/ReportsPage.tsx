@@ -584,7 +584,7 @@ const ReportsPage = () => {
         return {
           clientId: client.id, clientName: client.name,
           productId: ent.product_id, productName: product.name,
-          product: product, // حفظ المنتج للاستخدام في تنسيق الوحدة
+          product: product,
           entitlement: formatQuantityWithUnit(baseEntitlement, product),
           actual: formatQuantityWithUnit(baseActual, product),
           remaining: formatQuantityWithUnit(baseRemaining, product),
@@ -748,10 +748,14 @@ const ReportsPage = () => {
               <table className="w-full text-xs sm:text-sm min-w-[600px]">
                 <thead>
                   <tr className="bg-secondary/50 border-b border-border">
-                    <th className="text-right p-2 sm:p-3 font-semibold">م</th><th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">الكود</th><th className="text-right p-2 sm:p-3 font-semibold">الصنف</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">المورد</th><th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th><th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الصنف</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -814,10 +818,14 @@ const ReportsPage = () => {
               <table className="w-full text-xs sm:text-sm min-w-[600px]">
                 <thead>
                   <tr className="bg-secondary/50 border-b border-border">
-                    <th className="text-right p-2 sm:p-3 font-semibold">م</th><th className="text-right p-2 sm:p-3 font-semibold">التاريخ</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">النوع</th><th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th><th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th><th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">التاريخ</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">النوع</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
                   </tr>
                 </thead>
@@ -825,19 +833,27 @@ const ReportsPage = () => {
                   {groupByProduct ? (
                     groupedByProduct.map((item, i) => (
                       <tr key={item.productId} className="border-b border-border hover:bg-secondary/30">
-                        <td className="p-2 sm:p-3">{i + 1}</td><td className="p-2 sm:p-3 text-muted-foreground">-</td>
-                        <td className="p-2 sm:p-3">صافي</td><td className="p-2 sm:p-3 font-medium">{item.productName}</td>
-                        <td className="p-2 sm:p-3 font-bold">{getFormattedNetQty(item.productId, item.netQty)}</td><td className="p-2 sm:p-3 text-muted-foreground">-</td>
-                        <td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(selectedWarehouse)}</td><td className="p-2 sm:p-3">-</td><td className="p-2 sm:p-3">-</td>
+                        <td className="p-2 sm:p-3">{i + 1}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">-</td>
+                        <td className="p-2 sm:p-3">صافي</td>
+                        <td className="p-2 sm:p-3 font-medium">{item.productName}</td>
+                        <td className="p-2 sm:p-3 font-bold">{getFormattedNetQty(item.productId, item.netQty)}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">-</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(selectedWarehouse)}</td>
+                        <td className="p-2 sm:p-3">-</td>
+                        <td className="p-2 sm:p-3">-</td>
                       </tr>
                     ))
                   ) : (
                     filteredExpanded.map((m, i) => (
                       <tr key={m.itemId} className="border-b border-border hover:bg-secondary/30">
-                        <td className="p-2 sm:p-3">{i + 1}</td><td className="p-2 sm:p-3 text-muted-foreground">{m.date}</td>
+                        <td className="p-2 sm:p-3">{i + 1}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{m.date}</td>
                         <td className="p-2 sm:p-3"><span className={`px-2 py-0.5 rounded-full text-xs font-bold ${m.type === 'in' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>{m.type === 'in' ? 'وارد' : 'صادر'}</span></td>
-                        <td className="p-2 sm:p-3 font-medium">{m.productName}</td><td className="p-2 sm:p-3 font-bold">{getFormattedMovementQty(m)}</td>
-                        <td className="p-2 sm:p-3 text-muted-foreground">{getMovementDisplayUnit(m)}</td><td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(m.warehouse_id)}</td>
+                        <td className="p-2 sm:p-3 font-medium">{m.productName}</td>
+                        <td className="p-2 sm:p-3 font-bold">{getFormattedMovementQty(m)}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{getMovementDisplayUnit(m)}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(m.warehouse_id)}</td>
                         <td className="p-2 sm:p-3 text-muted-foreground">{m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-'}</td>
                         <td className="p-2 sm:p-3 text-muted-foreground">{m.entity_type === 'client' ? getClientName(m.entity_id) : '-'}</td>
                       </tr>
@@ -858,7 +874,9 @@ const ReportsPage = () => {
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={warehouseStock}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 20%, 88%)" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip />
                 <Bar dataKey="totalQty" name="الكميات" fill="hsl(174, 62%, 38%)" radius={[6, 6, 0, 0]} />
                 <Bar dataKey="products" name="المنتجات" fill="hsl(37, 95%, 55%)" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -874,8 +892,24 @@ const ReportsPage = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm">
-                <thead><tr className="bg-secondary/50 border-b border-border"><th className="text-right p-2 sm:p-3 font-semibold">المنتج</th><th className="text-right p-2 sm:p-3 font-semibold">المخزن</th><th className="text-right p-2 sm:p-3 font-semibold">الكمية</th><th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th></tr></thead>
-                <tbody>{warehouseStockDetails.map((d, i) => (<tr key={i} className="border-b border-border last:border-0 hover:bg-secondary/30"><td className="p-2 sm:p-3 font-medium">{d.productName}</td><td className="p-2 sm:p-3">{d.warehouseName}</td><td className="p-2 sm:p-3 font-bold">{getFormattedQuantityForProduct(d.product)}</td><td className="p-2 sm:p-3">{d.unit}</td></tr>))}</tbody>
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {warehouseStockDetails.map((d, i) => (
+                    <tr key={i} className="border-b border-border last:border-0 hover:bg-secondary/30">
+                      <td className="p-2 sm:p-3 font-medium">{d.productName}</td>
+                      <td className="p-2 sm:p-3">{d.warehouseName}</td>
+                      <td className="p-2 sm:p-3 font-bold">{getFormattedQuantityForProduct(d.product)}</td>
+                      <td className="p-2 sm:p-3">{d.unit}</td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
           </div>
@@ -886,18 +920,52 @@ const ReportsPage = () => {
       {tab === 'low-stock' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
-            <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center"><div className="text-xl sm:text-2xl font-bold text-warning">{lowStock.length - outOfStock.length}</div><div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">منخفض الكمية</div></div>
-            <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center"><div className="text-xl sm:text-2xl font-bold text-destructive">{outOfStock.length}</div><div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">غير متوفر (نفذ)</div></div>
+            <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center">
+              <div className="text-xl sm:text-2xl font-bold text-warning">{lowStock.length - outOfStock.length}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">منخفض الكمية</div>
+            </div>
+            <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center">
+              <div className="text-xl sm:text-2xl font-bold text-destructive">{outOfStock.length}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">غير متوفر (نفذ)</div>
+            </div>
           </div>
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2">
               <h3 className="font-semibold text-foreground flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base"><AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-warning" /> المنتجات منخفضة المخزون ({lowStock.length})</h3>
-              <div className="flex gap-1.5 sm:gap-2 shrink-0"><Button size="sm" variant="outline" onClick={exportLowStockExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />Excel</Button><Button size="sm" variant="outline" onClick={exportLowStockPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />PDF</Button></div>
+              <div className="flex gap-1.5 sm:gap-2 shrink-0">
+                <Button size="sm" variant="outline" onClick={exportLowStockExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />Excel</Button>
+                <Button size="sm" variant="outline" onClick={exportLowStockPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />PDF</Button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm min-w-[500px]">
-                <thead><tr className="bg-secondary/50 border-b border-border"><th className="text-right p-2 sm:p-3 font-semibold">م</th><th className="text-right p-2 sm:p-3 font-semibold">المنتج</th><th className="text-right p-2 sm:p-3 font-semibold">الكود</th><th className="text-right p-2 sm:p-3 font-semibold">الكمية</th><th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th><th className="text-right p-2 sm:p-3 font-semibold">المخزن</th><th className="text-right p-2 sm:p-3 font-semibold">الحالة</th></tr></thead>
-                <tbody>{lowStock.map((p, i) => { const qty = getDisplayQty(p); return (<tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/30"><td className="p-2 sm:p-3">{i + 1}</td><td className="p-2 sm:p-3 font-medium">{p.name}</td><td className="p-2 sm:p-3 text-muted-foreground font-mono text-[10px] sm:text-xs">{p.code}</td><td className="p-2 sm:p-3 font-bold text-destructive">{getFormattedQuantityForProduct(p)}</td><td className="p-2 sm:p-3 text-muted-foreground">{p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة')}</td><td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(selectedWarehouse)}</td><td className="p-2 sm:p-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${qty === 0 ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning'}`}>{qty === 0 ? 'نفذ' : 'منخفض'}</span></td></tr>); })}</tbody>
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكود</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lowStock.map((p, i) => {
+                    const qty = getDisplayQty(p);
+                    return (
+                      <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
+                        <td className="p-2 sm:p-3">{i + 1}</td>
+                        <td className="p-2 sm:p-3 font-medium">{p.name}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground font-mono text-[10px] sm:text-xs">{p.code}</td>
+                        <td className="p-2 sm:p-3 font-bold text-destructive">{getFormattedQuantityForProduct(p)}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة')}</td>
+                        <td className="p-2 sm:p-3 text-muted-foreground">{getWarehouseName(selectedWarehouse)}</td>
+                        <td className="p-2 sm:p-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${qty === 0 ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning'}`}>{qty === 0 ? 'نفذ' : 'منخفض'}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
               </table>
             </div>
           </div>
@@ -908,18 +976,98 @@ const ReportsPage = () => {
       {tab === 'entities' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
-            <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center"><div className="text-xl sm:text-2xl font-bold text-primary">{supplierReport.length}</div><div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">موردين نشطين</div></div>
-            <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center"><div className="text-xl sm:text-2xl font-bold text-accent-foreground">{clientReport.length}</div><div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">جهات صرف نشطة</div></div>
+            <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center">
+              <div className="text-xl sm:text-2xl font-bold text-primary">{supplierReport.length}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">موردين نشطين</div>
+            </div>
+            <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center">
+              <div className="text-xl sm:text-2xl font-bold text-accent-foreground">{clientReport.length}</div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">جهات صرف نشطة</div>
+            </div>
           </div>
+          
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
-            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2"><h3 className="font-semibold text-foreground text-sm sm:text-base flex items-center gap-2"><ArrowDownCircle className="w-4 h-4 text-success" /> تفاصيل حركات الموردين</h3><Button size="sm" variant="outline" onClick={printSuppliersDetails} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" />طباعة التقرير</Button></div>
-            <div className="overflow-x-auto p-3"><table className="w-full text-xs sm:text-sm"><thead><tr className="bg-secondary/50 border-b border-border"><th className="text-right p-2 font-semibold">م</th><th className="text-right p-2 font-semibold">المورد</th><th className="text-right p-2 font-semibold">المنتج</th><th className="text-right p-2 font-semibold">الكمية</th><th className="text-right p-2 font-semibold">الوحدة</th><th className="text-right p-2 font-semibold">المخزن</th></tr></thead><tbody>{supplierItems.map((item, idx) => (<tr key={item.itemId} className="border-b border-border hover:bg-secondary/30"><td className="p-2">{idx + 1}</td><td className="p-2 font-medium">{getSupplierName(item.entity_id)}</td><td className="p-2">{item.productName}</td><td className="p-2 font-bold">{getFormattedMovementQty(item)}</td><td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td><td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td></tr>))}{supplierItems.length === 0 && (<tr><td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد حركات موردين</td></tr>)}</tbody>}</table></div>
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2">
+              <h3 className="font-semibold text-foreground text-sm sm:text-base flex items-center gap-2"><ArrowDownCircle className="w-4 h-4 text-success" /> تفاصيل حركات الموردين</h3>
+              <Button size="sm" variant="outline" onClick={printSuppliersDetails} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" />طباعة التقرير</Button>
+            </div>
+            <div className="overflow-x-auto p-3">
+              <table className="w-full text-xs sm:text-sm">
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 font-semibold">م</th>
+                    <th className="text-right p-2 font-semibold">المورد</th>
+                    <th className="text-right p-2 font-semibold">المنتج</th>
+                    <th className="text-right p-2 font-semibold">الكمية</th>
+                    <th className="text-right p-2 font-semibold">الوحدة</th>
+                    <th className="text-right p-2 font-semibold">المخزن</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {supplierItems.map((item, idx) => (
+                    <tr key={item.itemId} className="border-b border-border hover:bg-secondary/30">
+                      <td className="p-2">{idx + 1}</td>
+                      <td className="p-2 font-medium">{getSupplierName(item.entity_id)}</td>
+                      <td className="p-2">{item.productName}</td>
+                      <td className="p-2 font-bold">{getFormattedMovementQty(item)}</td>
+                      <td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td>
+                      <td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td>
+                    </tr>
+                  ))}
+                  {supplierItems.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد حركات موردين</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
+          
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
-            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2"><h3 className="font-semibold text-foreground text-sm sm:text-base flex items-center gap-2"><ArrowUpCircle className="w-4 h-4 text-destructive" /> تفاصيل حركات جهات الصرف</h3><Button size="sm" variant="outline" onClick={printClientsDetails} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" />طباعة التقرير</Button></div>
-            <div className="overflow-x-auto p-3"><table className="w-full text-xs sm:text-sm"><thead><tr className="bg-secondary/50 border-b border-border"><th className="text-right p-2 font-semibold">م</th><th className="text-right p-2 font-semibold">جهة الصرف</th><th className="text-right p-2 font-semibold">المنتج</th><th className="text-right p-2 font-semibold">الكمية</th><th className="text-right p-2 font-semibold">الوحدة</th><th className="text-right p-2 font-semibold">المخزن</th><th className="text-right p-2 font-semibold">النوع</th></tr></thead><tbody>{clientItems.map((item, idx) => (<tr key={item.itemId} className="border-b border-border hover:bg-secondary/30"><td className="p-2">{idx + 1}</td><td className="p-2 font-medium">{getClientName(item.entity_id)}</td><td className="p-2">{item.productName}</td><td className="p-2 font-bold">{getFormattedMovementQty(item)}</td><td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td><td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td><td className="p-2"><span className="px-2 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive">منصرف</span></td></tr>))}{clientItems.length === 0 && (<tr><td colSpan={7} className="p-4 text-center text-muted-foreground">لا توجد حركات جهات صرف</td></tr>)}</tbody>}</table></div>
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2">
+              <h3 className="font-semibold text-foreground text-sm sm:text-base flex items-center gap-2"><ArrowUpCircle className="w-4 h-4 text-destructive" /> تفاصيل حركات جهات الصرف</h3>
+              <Button size="sm" variant="outline" onClick={printClientsDetails} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" />طباعة التقرير</Button>
+            </div>
+            <div className="overflow-x-auto p-3">
+              <table className="w-full text-xs sm:text-sm">
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 font-semibold">م</th>
+                    <th className="text-right p-2 font-semibold">جهة الصرف</th>
+                    <th className="text-right p-2 font-semibold">المنتج</th>
+                    <th className="text-right p-2 font-semibold">الكمية</th>
+                    <th className="text-right p-2 font-semibold">الوحدة</th>
+                    <th className="text-right p-2 font-semibold">المخزن</th>
+                    <th className="text-right p-2 font-semibold">النوع</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientItems.map((item, idx) => (
+                    <tr key={item.itemId} className="border-b border-border hover:bg-secondary/30">
+                      <td className="p-2">{idx + 1}</td>
+                      <td className="p-2 font-medium">{getClientName(item.entity_id)}</td>
+                      <td className="p-2">{item.productName}</td>
+                      <td className="p-2 font-bold">{getFormattedMovementQty(item)}</td>
+                      <td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td>
+                      <td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td>
+                      <td className="p-2"><span className="px-2 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive">منصرف</span></td>
+                    </tr>
+                  ))}
+                  {clientItems.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="p-4 text-center text-muted-foreground">لا توجد حركات جهات صرف</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div className="flex gap-2 justify-end"><Button size="sm" variant="outline" onClick={exportEntitiesExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />تصدير Excel شامل</Button><Button size="sm" variant="outline" onClick={exportEntitiesPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />تصدير PDF شامل</Button></div>
+          
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" variant="outline" onClick={exportEntitiesExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />تصدير Excel شامل</Button>
+            <Button size="sm" variant="outline" onClick={exportEntitiesPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />تصدير PDF شامل</Button>
+          </div>
         </div>
       )}
 
@@ -927,20 +1075,77 @@ const ReportsPage = () => {
       {tab === 'entitlements' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="flex items-center gap-2"><label className="text-sm font-semibold text-foreground whitespace-nowrap">الشهر:</label><Input type="month" value={entitlementMonth} onChange={e => setEntitlementMonth(e.target.value)} className="w-44" /></div>
-            <div className="flex items-center gap-2"><label className="text-sm font-semibold text-foreground whitespace-nowrap">جهة الصرف:</label><select value={selectedClient} onChange={e => setSelectedClient(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="">-- جميع جهات الصرف --</option>{clientsWithEntitlements.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}</select></div>
-            <div className="flex gap-1.5 sm:gap-2 mr-auto"><Button size="sm" variant="outline" onClick={exportEntitlementsExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Excel</Button><Button size="sm" variant="outline" onClick={exportEntitlementsPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> PDF</Button>{selectedClient && (<Button size="sm" variant="outline" onClick={printSelectedClientEntitlements} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> طباعة لجهة الصرف</Button>)}</div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-foreground whitespace-nowrap">الشهر:</label>
+              <Input type="month" value={entitlementMonth} onChange={e => setEntitlementMonth(e.target.value)} className="w-44" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-foreground whitespace-nowrap">جهة الصرف:</label>
+              <select value={selectedClient} onChange={e => setSelectedClient(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <option value="">-- جميع جهات الصرف --</option>
+                {clientsWithEntitlements.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+            </div>
+            <div className="flex gap-1.5 sm:gap-2 mr-auto">
+              <Button size="sm" variant="outline" onClick={exportEntitlementsExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Excel</Button>
+              <Button size="sm" variant="outline" onClick={exportEntitlementsPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> PDF</Button>
+              {selectedClient && (<Button size="sm" variant="outline" onClick={printSelectedClientEntitlements} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> طباعة لجهة الصرف</Button>)}
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">{[
-            { label: 'إجمالي الاستحقاقات', value: entitlementReport.length },
-            { label: 'ضمن الاستحقاق', value: entitlementReport.filter((r: any) => !r.exceeded).length },
-            { label: 'خارج الاستحقاق', value: entitlementReport.filter((r: any) => r.exceeded).length },
-          ].map((s, i) => (<div key={i} className={`bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center ${i === 2 && entitlementReport.some((r: any) => r.exceeded) ? 'border-destructive/50' : ''}`}><div className={`text-lg sm:text-xl font-bold ${i === 2 ? 'text-destructive' : 'text-foreground'}`}>{s.value}</div><div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{s.label}</div></div>))}</div>
+          
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            {[
+              { label: 'إجمالي الاستحقاقات', value: entitlementReport.length },
+              { label: 'ضمن الاستحقاق', value: entitlementReport.filter((r: any) => !r.exceeded).length },
+              { label: 'خارج الاستحقاق', value: entitlementReport.filter((r: any) => r.exceeded).length },
+            ].map((s, i) => (
+              <div key={i} className={`bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center ${i === 2 && entitlementReport.some((r: any) => r.exceeded) ? 'border-destructive/50' : ''}`}>
+                <div className={`text-lg sm:text-xl font-bold ${i === 2 ? 'text-destructive' : 'text-foreground'}`}>{s.value}</div>
+                <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{s.label}</div>
+              </div>
+            ))}
+          </div>
+          
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm min-w-[700px]">
-                <thead><tr className="bg-secondary/50 border-b border-border"><th className="text-right p-2 sm:p-3 font-semibold">م</th><th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th><th className="text-right p-2 sm:p-3 font-semibold">المنتج</th><th className="text-right p-2 sm:p-3 font-semibold">الاستحقاق</th><th className="text-right p-2 sm:p-3 font-semibold">المصروف</th><th className="text-right p-2 sm:p-3 font-semibold">المتبقي</th><th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th><th className="text-center p-2 sm:p-3 font-semibold">الحالة</th></tr></thead>
-                <tbody>{entitlementReport.map((r: any, i: number) => (<tr key={`${r.clientId}-${r.productId}`} className={`border-b border-border hover:bg-secondary/30 ${r.exceeded ? 'bg-destructive/5' : ''}`}><td className="p-2 sm:p-3">{i + 1}</td><td className="p-2 sm:p-3 font-medium">{r.clientName}</td><td className="p-2 sm:p-3">{r.productName}</td><td className="p-2 sm:p-3 font-bold">{r.entitlement}</td><td className="p-2 sm:p-3 font-bold">{r.actual}</td><td className="p-2 sm:p-3">{r.remaining}</td><td className="p-2 sm:p-3 text-muted-foreground">{r.unit}</td><td className="p-2 sm:p-3 text-center">{r.exceeded ? (<Badge variant="destructive" className="text-[10px]">خارج الاستحقاق (+{r.overAmountFormatted})</Badge>) : (<Badge variant="outline" className="text-[10px] border-green-500 text-green-600">ضمن الاستحقاق</Badge>)}</td></tr>))}{entitlementReport.length === 0 && (<tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد استحقاقات محددة. قم بإضافة استحقاقات من صفحة جهات الصرف.</td></tr>)}</tbody>
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الاستحقاق</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المصروف</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المتبقي</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                    <th className="text-center p-2 sm:p-3 font-semibold">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entitlementReport.map((r: any, i: number) => (
+                    <tr key={`${r.clientId}-${r.productId}`} className={`border-b border-border hover:bg-secondary/30 ${r.exceeded ? 'bg-destructive/5' : ''}`}>
+                      <td className="p-2 sm:p-3">{i + 1}</td>
+                      <td className="p-2 sm:p-3 font-medium">{r.clientName}</td>
+                      <td className="p-2 sm:p-3">{r.productName}</td>
+                      <td className="p-2 sm:p-3 font-bold">{r.entitlement}</td>
+                      <td className="p-2 sm:p-3 font-bold">{r.actual}</td>
+                      <td className="p-2 sm:p-3">{r.remaining}</td>
+                      <td className="p-2 sm:p-3 text-muted-foreground">{r.unit}</td>
+                      <td className="p-2 sm:p-3 text-center">
+                        {r.exceeded ? (
+                          <Badge variant="destructive" className="text-[10px]">خارج الاستحقاق (+{r.overAmountFormatted})</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">ضمن الاستحقاق</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {entitlementReport.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد استحقاقات محددة. قم بإضافة استحقاقات من صفحة جهات الصرف.</td>
+                    </tr>
+                  )}
+                </tbody>
               </table>
             </div>
           </div>
