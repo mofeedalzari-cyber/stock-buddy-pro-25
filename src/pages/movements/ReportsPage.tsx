@@ -6,7 +6,7 @@ import { useWarehouse } from '@/contexts/WarehouseContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   FileSpreadsheet, FileText, Package, ArrowDownCircle, ArrowUpCircle,
-  AlertTriangle, Building2, RefreshCw, Users, Printer
+  AlertTriangle, Building2, RefreshCw, Users, Printer, ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
