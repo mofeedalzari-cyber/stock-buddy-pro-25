@@ -134,6 +134,15 @@ export interface UnitConversion {
   factor: number;
 }
 
+export interface ClientEntitlement {
+  id: string;
+  client_id: string;
+  product_id: string;
+  monthly_quantity: number;
+  organization_id?: string;
+  created_at: string;
+}
+
 interface WarehouseContextType {
   products: Product[];
   categories: Category[];
@@ -144,9 +153,13 @@ interface WarehouseContextType {
   loading: boolean;
   units: Unit[];
   unitConversions: UnitConversion[];
+  entitlements: ClientEntitlement[];
   pendingCount: number;
   syncing: boolean;
   syncOfflineData: () => Promise<void>;
+  addEntitlement: (e: Omit<ClientEntitlement, 'id' | 'created_at'>) => Promise<void>;
+  updateEntitlement: (e: ClientEntitlement) => Promise<void>;
+  deleteEntitlement: (id: string) => Promise<void>;
   addProduct: (p: Omit<Product, 'id' | 'created_at' | 'created_by'>) => Promise<Product | null>;
   updateProduct: (p: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<boolean>;
@@ -189,6 +202,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitConversions, setUnitConversions] = useState<UnitConversion[]>([]);
+  const [entitlements, setEntitlements] = useState<ClientEntitlement[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(getQueueCount());
   const [syncing, setSyncing] = useState(false);
@@ -205,7 +219,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
   // ========== جلب جميع البيانات ==========
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [catRes, whRes, supRes, clRes, prodRes, movRes, profRes, unitsRes, convRes] = await Promise.all([
+    const [catRes, whRes, supRes, clRes, prodRes, movRes, profRes, unitsRes, convRes, entRes] = await Promise.all([
       supabase.from('categories').select('*'),
       supabase.from('warehouses').select('*'),
       supabase.from('suppliers').select('*'),
@@ -215,6 +229,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       supabase.from('profiles').select('user_id, display_name'),
       (supabase as any).from('units').select('*'),
       (supabase as any).from('unit_conversions').select('*'),
+      (supabase as any).from('client_entitlements').select('*'),
     ]);
     if (catRes.data) setCategories(catRes.data as unknown as Category[]);
     if (whRes.data) setWarehouses(whRes.data as unknown as Warehouse[]);
@@ -236,6 +251,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     }
     if (unitsRes.data) setUnits(unitsRes.data as unknown as Unit[]);
     if (convRes.data) setUnitConversions(convRes.data as unknown as UnitConversion[]);
+    if (entRes.data) setEntitlements(entRes.data as unknown as ClientEntitlement[]);
     setLoading(false);
   }, []);
 
@@ -1120,12 +1136,41 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [movements, products]);
 
+  // ========== دوال الاستحقاقات ==========
+  const addEntitlement = useCallback(async (e: Omit<ClientEntitlement, 'id' | 'created_at'>) => {
+    const { data, error } = await (supabase as any)
+      .from('client_entitlements')
+      .insert({ client_id: e.client_id, product_id: e.product_id, monthly_quantity: e.monthly_quantity })
+      .select()
+      .single();
+    if (error) showError(error.message);
+    else if (data) setEntitlements(prev => [...prev, data as ClientEntitlement]);
+  }, []);
+
+  const updateEntitlement = useCallback(async (e: ClientEntitlement) => {
+    const { error } = await (supabase as any)
+      .from('client_entitlements')
+      .update({ monthly_quantity: e.monthly_quantity })
+      .eq('id', e.id);
+    if (error) showError(error.message);
+    else setEntitlements(prev => prev.map(ent => ent.id === e.id ? e : ent));
+  }, []);
+
+  const deleteEntitlement = useCallback(async (id: string) => {
+    const { error } = await (supabase as any)
+      .from('client_entitlements')
+      .delete()
+      .eq('id', id);
+    if (error) showError(error.message);
+    else setEntitlements(prev => prev.filter(e => e.id !== id));
+  }, []);
+
   const refreshAll = fetchAll;
 
   return (
     <WarehouseContext.Provider value={{
       products, categories, warehouses, suppliers, clients, movements, loading,
-      units, unitConversions,
+      units, unitConversions, entitlements,
       pendingCount, syncing, syncOfflineData,
       addProduct, updateProduct, deleteProduct,
       addCategory, updateCategory, deleteCategory,
@@ -1133,6 +1178,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       addSupplier, updateSupplier, deleteSupplier,
       addClient, updateClient, deleteClient,
       addMovement, updateMovement, deleteMovement,
+      addEntitlement, updateEntitlement, deleteEntitlement,
       getCategoryName, getWarehouseName, getSupplierName, getClientName, getProductName, getUserName,
       getUnitName, convertQuantity,
       isLinkedToMovement, refreshAll,

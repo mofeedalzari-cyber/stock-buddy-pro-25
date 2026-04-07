@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
-import { Plus, Pencil, Trash2, Search, RefreshCw } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, RefreshCw, ClipboardCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,9 +9,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Client } from '@/types/warehouse';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { Badge } from '@/components/ui/badge';
 
 const ClientsPage = () => {
-  const { clients, addClient, updateClient, deleteClient, refreshAll } = useWarehouse();
+  const { clients, products, entitlements, addClient, updateClient, deleteClient, addEntitlement, updateEntitlement, deleteEntitlement, refreshAll, getUnitName } = useWarehouse();
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState('');
@@ -23,6 +24,11 @@ const ClientsPage = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // حالة إدارة الاستحقاقات
+  const [entitlementDialog, setEntitlementDialog] = useState(false);
+  const [entitlementClient, setEntitlementClient] = useState<Client | null>(null);
+  const [entForm, setEntForm] = useState({ product_id: '', monthly_quantity: '' });
 
   const filtered = clients.filter(c => c.name.includes(search) || c.phone.includes(search));
 
@@ -60,6 +66,41 @@ const ClientsPage = () => {
     }
     setSelected(new Set());
     setBulkDeleteDialog(false);
+  };
+
+  const openEntitlements = (c: Client) => {
+    setEntitlementClient(c);
+    setEntForm({ product_id: '', monthly_quantity: '' });
+    setEntitlementDialog(true);
+  };
+
+  const clientEntitlements = entitlementClient
+    ? entitlements.filter(e => e.client_id === entitlementClient.id)
+    : [];
+
+  const handleAddEntitlement = async () => {
+    if (!entitlementClient || !entForm.product_id || !entForm.monthly_quantity) {
+      toast({ title: 'تنبيه', description: 'يرجى اختيار المنتج وتحديد الكمية', variant: 'destructive' });
+      return;
+    }
+    const existing = entitlements.find(e => e.client_id === entitlementClient.id && e.product_id === entForm.product_id);
+    if (existing) {
+      await updateEntitlement({ ...existing, monthly_quantity: Number(entForm.monthly_quantity) });
+      toast({ title: 'تم التحديث', description: 'تم تحديث الاستحقاق بنجاح' });
+    } else {
+      await addEntitlement({
+        client_id: entitlementClient.id,
+        product_id: entForm.product_id,
+        monthly_quantity: Number(entForm.monthly_quantity),
+      });
+      toast({ title: 'تم الإضافة', description: 'تم إضافة الاستحقاق بنجاح' });
+    }
+    setEntForm({ product_id: '', monthly_quantity: '' });
+  };
+
+  const handleDeleteEntitlement = async (id: string) => {
+    await deleteEntitlement(id);
+    toast({ title: 'تم الحذف', description: 'تم حذف الاستحقاق' });
   };
 
   const openAdd = () => { setEditing(null); setForm({ name: '', phone: '', address: '', notes: '' }); setDialogOpen(true); };
@@ -105,6 +146,7 @@ const ClientsPage = () => {
           </div>
         </div>
         <div className="flex gap-1">
+          <button onClick={() => openEntitlements(c)} className="p-1.5 rounded-md hover:bg-accent text-accent-foreground" title="الاستحقاقات"><ClipboardCheck className="w-3.5 h-3.5" /></button>
           <button onClick={() => openEdit(c)} className="p-1.5 rounded-md hover:bg-primary/10 text-primary"><Pencil className="w-3.5 h-3.5" /></button>
           {isAdmin && <button onClick={() => confirmDelete(c)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>}
         </div>
@@ -165,6 +207,7 @@ const ClientsPage = () => {
                   <td className="p-3 text-muted-foreground hidden md:table-cell">{c.address}</td>
                   <td className="p-3">
                     <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => openEntitlements(c)} className="p-1.5 rounded-md hover:bg-accent text-accent-foreground" title="الاستحقاقات"><ClipboardCheck className="w-4 h-4" /></button>
                       <button onClick={() => openEdit(c)} className="p-1.5 rounded-md hover:bg-primary/10 text-primary"><Pencil className="w-4 h-4" /></button>
                       {isAdmin && <button onClick={() => confirmDelete(c)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="w-4 h-4" /></button>}
                     </div>
@@ -212,6 +255,81 @@ const ClientsPage = () => {
           <div className="flex gap-2 mt-4">
             <Button variant="destructive" onClick={handleBulkDelete} className="flex-1"><Trash2 className="w-4 h-4 ml-1" />حذف الكل</Button>
             <Button variant="outline" onClick={() => setBulkDeleteDialog(false)}>إلغاء</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* حوار الاستحقاقات */}
+      <Dialog open={entitlementDialog} onOpenChange={setEntitlementDialog}>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
+          <DialogHeader><DialogTitle className="text-base sm:text-lg">استحقاقات: {entitlementClient?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            {/* إضافة استحقاق جديد */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+              <div className="space-y-1">
+                <Label className="text-xs">المنتج</Label>
+                <select
+                  value={entForm.product_id}
+                  onChange={e => setEntForm({ ...entForm, product_id: e.target.value })}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">-- اختر المنتج --</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">الكمية الشهرية</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="الكمية"
+                  value={entForm.monthly_quantity}
+                  onChange={e => setEntForm({ ...entForm, monthly_quantity: e.target.value })}
+                />
+              </div>
+              <Button onClick={handleAddEntitlement} size="sm" className="gradient-primary border-0">
+                <Plus className="w-4 h-4 ml-1" />إضافة
+              </Button>
+            </div>
+
+            {/* قائمة الاستحقاقات */}
+            {clientEntitlements.length > 0 ? (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <table className="w-full text-xs sm:text-sm">
+                  <thead>
+                    <tr className="bg-secondary/50 border-b border-border">
+                      <th className="text-right p-2 font-semibold">المنتج</th>
+                      <th className="text-right p-2 font-semibold">الكمية الشهرية</th>
+                      <th className="text-right p-2 font-semibold">الوحدة</th>
+                      <th className="text-center p-2 font-semibold">إجراء</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clientEntitlements.map(ent => {
+                      const product = products.find(p => p.id === ent.product_id);
+                      return (
+                        <tr key={ent.id} className="border-b border-border last:border-0">
+                          <td className="p-2 font-medium">{product?.name || '-'}</td>
+                          <td className="p-2">{ent.monthly_quantity}</td>
+                          <td className="p-2 text-muted-foreground">
+                            {product?.display_unit_id ? getUnitName(product.display_unit_id) : (product?.unit || 'قطعة')}
+                          </td>
+                          <td className="p-2 text-center">
+                            <button onClick={() => handleDeleteEntitlement(ent.id)} className="p-1 rounded hover:bg-destructive/10 text-destructive">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground text-sm py-4">لا توجد استحقاقات محددة لهذه الجهة</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
