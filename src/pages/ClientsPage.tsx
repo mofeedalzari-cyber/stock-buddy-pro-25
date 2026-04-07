@@ -32,7 +32,7 @@ const ClientsPage = () => {
   const [entitlementDialog, setEntitlementDialog] = useState(false);
   const [entitlementClient, setEntitlementClient] = useState<Client | null>(null);
   const [entForm, setEntForm] = useState({ product_id: '', monthly_quantity: '', unit_id: '' });
-  const [availableUnits, setAvailableUnits] = useState<{id: string, name: string, isBase: boolean, factor?: number}[]>([]);
+  const [availableUnits, setAvailableUnits] = useState<{id: string, name: string, isBase: boolean, factor: number}[]>([]);
 
   // عند تغيير المنتج، تحديث قائمة الوحدات المتاحة
   useEffect(() => {
@@ -44,7 +44,7 @@ const ClientsPage = () => {
     const product = products.find(p => p.id === entForm.product_id);
     if (!product) return;
 
-    const productUnits: {id: string, name: string, isBase: boolean, factor?: number}[] = [];
+    const productUnits: {id: string, name: string, isBase: boolean, factor: number}[] = [];
     
     // الوحدة الأساسية (base_unit_id)
     const baseUnitId = product.base_unit_id;
@@ -62,12 +62,10 @@ const ClientsPage = () => {
     if (product.display_unit_id && product.display_unit_id !== baseUnitId) {
       const displayUnit = units.find(u => u.id === product.display_unit_id);
       if (displayUnit) {
-        // حساب عامل التحويل من وحدة العرض إلى الوحدة الأساسية
         let factor = 1;
         if (baseUnitId && product.pack_size && product.pack_size > 0) {
           factor = product.pack_size;
         } else if (baseUnitId) {
-          // محاولة إيجاد التحويل من جدول unit_conversions
           const conv = unitConversions.find(c => c.from_unit_id === product.display_unit_id && c.to_unit_id === baseUnitId);
           if (conv) factor = conv.factor;
         }
@@ -75,21 +73,10 @@ const ClientsPage = () => {
       }
     }
     
-    // وحدات إضافية من التحويلات (اختياري) - يمكن إضافتها إذا أردت
-    const conversionsFrom = unitConversions.filter(c => c.from_unit_id === baseUnitId);
-    conversionsFrom.forEach(conv => {
-      const targetUnit = units.find(u => u.id === conv.to_unit_id);
-      if (targetUnit && !productUnits.some(pu => pu.id === targetUnit.id)) {
-        productUnits.push({ id: targetUnit.id, name: targetUnit.name, isBase: false, factor: conv.factor });
-      }
-    });
-    const conversionsTo = unitConversions.filter(c => c.to_unit_id === baseUnitId);
-    conversionsTo.forEach(conv => {
-      const sourceUnit = units.find(u => u.id === conv.from_unit_id);
-      if (sourceUnit && !productUnits.some(pu => pu.id === sourceUnit.id)) {
-        productUnits.push({ id: sourceUnit.id, name: sourceUnit.name, isBase: false, factor: 1 / conv.factor });
-      }
-    });
+    // إذا لم يتم العثور على أي وحدة، نضيف وحدة افتراضية "قطعة"
+    if (productUnits.length === 0) {
+      productUnits.push({ id: 'default', name: product.unit || 'قطعة', isBase: true, factor: 1 });
+    }
     
     setAvailableUnits(productUnits);
     // تعيين الوحدة الافتراضية: إن وجدت display_unit_id وإلا الأساسية
@@ -167,7 +154,6 @@ const ClientsPage = () => {
     const selectedUnitId = entForm.unit_id;
     
     if (selectedUnitId && baseUnitId && selectedUnitId !== baseUnitId) {
-      // تحويل من الوحدة المختارة إلى الوحدة الأساسية
       try {
         const converted = convertQuantity(finalQuantity, selectedUnitId, baseUnitId);
         finalQuantity = converted;
@@ -176,12 +162,6 @@ const ClientsPage = () => {
         toast({ title: 'خطأ في التحويل', description: 'تعذر تحويل الكمية إلى الوحدة الأساسية', variant: 'destructive' });
         return;
       }
-    } else if (!baseUnitId && selectedUnitId === 'custom_' + product.unit) {
-      // لا تحويل، نستخدم نفس الكمية
-      finalQuantity = Number(entForm.monthly_quantity);
-    } else if (selectedUnitId && !baseUnitId) {
-      // لا توجد وحدة أساسية محددة، نستخدم الكمية كما هي
-      finalQuantity = Number(entForm.monthly_quantity);
     }
     
     const existing = entitlements.find(e => e.client_id === entitlementClient.id && e.product_id === entForm.product_id);
@@ -197,6 +177,7 @@ const ClientsPage = () => {
       toast({ title: 'تم الإضافة', description: 'تم إضافة الاستحقاق بنجاح' });
     }
     setEntForm({ product_id: '', monthly_quantity: '', unit_id: '' });
+    // تحديث قائمة الاستحقاقات (سيتم تلقائياً عبر context)
   };
 
   const handleDeleteEntitlement = async (id: string) => {
@@ -360,12 +341,12 @@ const ClientsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* حوار الاستحقاقات مع دعم الوحدات */}
+      {/* حوار الاستحقاقات مع قائمة منسدلة للوحدة */}
       <Dialog open={entitlementDialog} onOpenChange={setEntitlementDialog}>
         <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader><DialogTitle className="text-base sm:text-lg">استحقاقات: {entitlementClient?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
-            {/* نموذج إضافة استحقاق جديد مع اختيار الوحدة */}
+            {/* نموذج إضافة استحقاق جديد مع قائمة الوحدات */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
               <div className="space-y-1 sm:col-span-2">
                 <Label className="text-xs">المنتج</Label>
@@ -381,7 +362,7 @@ const ClientsPage = () => {
                 </select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">الكمية</Label>
+                <Label className="text-xs">الكمية الشهرية</Label>
                 <Input
                   type="number"
                   min="0"
@@ -410,7 +391,7 @@ const ClientsPage = () => {
               </Button>
             </div>
 
-            {/* جدول الاستحقاقات مع عرض الوحدة المناسبة */}
+            {/* جدول عرض الاستحقاقات الحالية */}
             {clientEntitlements.length > 0 ? (
               <div className="border border-border rounded-lg overflow-hidden">
                 <table className="w-full text-xs sm:text-sm">
@@ -420,33 +401,27 @@ const ClientsPage = () => {
                       <th className="text-right p-2 font-semibold">الكمية الشهرية</th>
                       <th className="text-right p-2 font-semibold">الوحدة</th>
                       <th className="text-center p-2 font-semibold">إجراء</th>
-                    </tr>
+                    </table>
                   </thead>
                   <tbody>
                     {clientEntitlements.map(ent => {
                       const product = products.find(p => p.id === ent.product_id);
-                      let displayUnitName = product?.unit || 'قطعة';
-                      let displayQuantity = ent.monthly_quantity;
-                      
-                      // إذا كان المنتج له وحدة عرض (display_unit_id) و pack_size
+                      let displayUnit = product?.unit || 'قطعة';
+                      let displayQty = ent.monthly_quantity;
+                      // محاولة عرض الكمية بالوحدة المعروضة إذا أمكن
                       if (product?.display_unit_id && product.pack_size && product.pack_size > 0) {
                         const wholeUnits = Math.floor(ent.monthly_quantity / product.pack_size);
                         const remainder = ent.monthly_quantity % product.pack_size;
                         if (wholeUnits > 0 && remainder === 0) {
-                          displayQuantity = wholeUnits;
-                          displayUnitName = getUnitName(product.display_unit_id) || product.unit || 'قطعة';
-                        } else if (wholeUnits > 0 && remainder > 0) {
-                          // عرض كمية مركبة (مثلاً 2 كرتون و 3 علب) - اختياري
-                          displayQuantity = ent.monthly_quantity;
-                          displayUnitName = product.unit || 'قطعة';
+                          displayQty = wholeUnits;
+                          displayUnit = getUnitName(product.display_unit_id) || product.unit || 'قطعة';
                         }
                       }
-                      
                       return (
                         <tr key={ent.id} className="border-b border-border last:border-0">
                           <td className="p-2 font-medium">{product?.name || '-'}</td>
-                          <td className="p-2">{displayQuantity}</td>
-                          <td className="p-2 text-muted-foreground">{displayUnitName}</td>
+                          <td className="p-2">{displayQty}</td>
+                          <td className="p-2 text-muted-foreground">{displayUnit}</td>
                           <td className="p-2 text-center">
                             <button onClick={() => handleDeleteEntitlement(ent.id)} className="p-1 rounded hover:bg-destructive/10 text-destructive">
                               <Trash2 className="w-3.5 h-3.5" />
