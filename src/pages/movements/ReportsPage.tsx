@@ -26,11 +26,13 @@ import {
 } from './reportsUtils';
 import { Product } from '@/types/warehouse';
 
-type ReportTab = 'products' | 'movements' | 'warehouses' | 'low-stock' | 'entities';
+import { Badge } from '@/components/ui/badge';
+
+type ReportTab = 'products' | 'movements' | 'warehouses' | 'low-stock' | 'entities' | 'entitlements';
 
 const ReportsPage = () => {
   const {
-    products, categories, warehouses, suppliers, clients, movements,
+    products, categories, warehouses, suppliers, clients, movements, entitlements,
     getCategoryName, getWarehouseName, getProductName, getSupplierName, getClientName,
     getUnitName,
     refreshAll,
