@@ -1167,6 +1167,92 @@ const ReportsPage = () => {
           </div>
         </div>
       )}
+
+      {/* محتوى تبويب الاستحقاقات */}
+      {tab === 'entitlements' && (
+        <div className="space-y-4 sm:space-y-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-foreground whitespace-nowrap">الشهر:</label>
+              <Input
+                type="month"
+                value={entitlementMonth}
+                onChange={e => setEntitlementMonth(e.target.value)}
+                className="w-44"
+              />
+            </div>
+            <div className="flex gap-1.5 sm:gap-2 mr-auto">
+              <Button size="sm" variant="outline" onClick={exportEntitlementsExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
+                <FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />Excel
+              </Button>
+              <Button size="sm" variant="outline" onClick={exportEntitlementsPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
+                <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />PDF
+              </Button>
+            </div>
+          </div>
+
+          {/* ملخص */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            {[
+              { label: 'إجمالي الاستحقاقات', value: entitlementReport.length },
+              { label: 'ضمن الاستحقاق', value: entitlementReport.filter((r: any) => !r.exceeded).length },
+              { label: 'خارج الاستحقاق', value: entitlementReport.filter((r: any) => r.exceeded).length },
+            ].map((s, i) => (
+              <div key={i} className={`bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center ${i === 2 && entitlementReport.some((r: any) => r.exceeded) ? 'border-destructive/50' : ''}`}>
+                <div className={`text-lg sm:text-xl font-bold ${i === 2 ? 'text-destructive' : 'text-foreground'}`}>{s.value}</div>
+                <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* جدول الاستحقاقات */}
+          <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs sm:text-sm min-w-[700px]">
+                <thead>
+                  <tr className="bg-secondary/50 border-b border-border">
+                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الاستحقاق</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المصروف</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">المتبقي</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
+                    <th className="text-center p-2 sm:p-3 font-semibold">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entitlementReport.map((r: any, i: number) => (
+                    <tr key={`${r.clientId}-${r.productId}`} className={`border-b border-border hover:bg-secondary/30 ${r.exceeded ? 'bg-destructive/5' : ''}`}>
+                      <td className="p-2 sm:p-3">{i + 1}</td>
+                      <td className="p-2 sm:p-3 font-medium">{r.clientName}</td>
+                      <td className="p-2 sm:p-3">{r.productName}</td>
+                      <td className="p-2 sm:p-3 font-bold">{r.entitlement}</td>
+                      <td className="p-2 sm:p-3 font-bold">{r.actual}</td>
+                      <td className="p-2 sm:p-3">{r.remaining}</td>
+                      <td className="p-2 sm:p-3 text-muted-foreground">{r.unit}</td>
+                      <td className="p-2 sm:p-3 text-center">
+                        {r.exceeded ? (
+                          <Badge variant="destructive" className="text-[10px]">
+                            خارج الاستحقاق (+{r.overAmount})
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">
+                            ضمن الاستحقاق
+                          </Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {entitlementReport.length === 0 && (
+                    <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد استحقاقات محددة. قم بإضافة استحقاقات من صفحة جهات الصرف.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
