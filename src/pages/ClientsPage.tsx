@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
 import { Plus, Pencil, Trash2, Search, RefreshCw, ClipboardCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,10 +9,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Client } from '@/types/warehouse';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Badge } from '@/components/ui/badge';
 
 const ClientsPage = () => {
-  const { clients, products, entitlements, addClient, updateClient, deleteClient, addEntitlement, updateEntitlement, deleteEntitlement, refreshAll, getUnitName } = useWarehouse();
+  const {
+    clients, products, entitlements, addClient, updateClient, deleteClient,
+    addEntitlement, updateEntitlement, deleteEntitlement, refreshAll,
+    getUnitName, units, unitConversions, convertQuantity
+  } = useWarehouse();
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState('');
@@ -28,7 +31,76 @@ const ClientsPage = () => {
   // حالة إدارة الاستحقاقات
   const [entitlementDialog, setEntitlementDialog] = useState(false);
   const [entitlementClient, setEntitlementClient] = useState<Client | null>(null);
-  const [entForm, setEntForm] = useState({ product_id: '', monthly_quantity: '' });
+  const [entForm, setEntForm] = useState({ product_id: '', monthly_quantity: '', unit_id: '' });
+  const [availableUnits, setAvailableUnits] = useState<{id: string, name: string, isBase: boolean, factor?: number}[]>([]);
+
+  // عند تغيير المنتج، تحديث قائمة الوحدات المتاحة
+  useEffect(() => {
+    if (!entForm.product_id) {
+      setAvailableUnits([]);
+      setEntForm(prev => ({ ...prev, unit_id: '' }));
+      return;
+    }
+    const product = products.find(p => p.id === entForm.product_id);
+    if (!product) return;
+
+    const productUnits: {id: string, name: string, isBase: boolean, factor?: number}[] = [];
+    
+    // الوحدة الأساسية (base_unit_id)
+    const baseUnitId = product.base_unit_id;
+    if (baseUnitId) {
+      const baseUnit = units.find(u => u.id === baseUnitId);
+      if (baseUnit) {
+        productUnits.push({ id: baseUnit.id, name: baseUnit.name, isBase: true, factor: 1 });
+      }
+    } else if (product.unit) {
+      // إذا لم يكن هناك base_unit_id، نستخدم unit كنص (قد لا يكون مرتبط بجدول الوحدات)
+      productUnits.push({ id: 'custom_' + product.unit, name: product.unit, isBase: true, factor: 1 });
+    }
+    
+    // وحدة العرض (display_unit_id) إن وجدت
+    if (product.display_unit_id && product.display_unit_id !== baseUnitId) {
+      const displayUnit = units.find(u => u.id === product.display_unit_id);
+      if (displayUnit) {
+        // حساب عامل التحويل من وحدة العرض إلى الوحدة الأساسية
+        let factor = 1;
+        if (baseUnitId && product.pack_size && product.pack_size > 0) {
+          factor = product.pack_size;
+        } else if (baseUnitId) {
+          // محاولة إيجاد التحويل من جدول unit_conversions
+          const conv = unitConversions.find(c => c.from_unit_id === product.display_unit_id && c.to_unit_id === baseUnitId);
+          if (conv) factor = conv.factor;
+        }
+        productUnits.push({ id: displayUnit.id, name: displayUnit.name, isBase: false, factor });
+      }
+    }
+    
+    // وحدات إضافية من التحويلات (اختياري) - يمكن إضافتها إذا أردت
+    const conversionsFrom = unitConversions.filter(c => c.from_unit_id === baseUnitId);
+    conversionsFrom.forEach(conv => {
+      const targetUnit = units.find(u => u.id === conv.to_unit_id);
+      if (targetUnit && !productUnits.some(pu => pu.id === targetUnit.id)) {
+        productUnits.push({ id: targetUnit.id, name: targetUnit.name, isBase: false, factor: conv.factor });
+      }
+    });
+    const conversionsTo = unitConversions.filter(c => c.to_unit_id === baseUnitId);
+    conversionsTo.forEach(conv => {
+      const sourceUnit = units.find(u => u.id === conv.from_unit_id);
+      if (sourceUnit && !productUnits.some(pu => pu.id === sourceUnit.id)) {
+        productUnits.push({ id: sourceUnit.id, name: sourceUnit.name, isBase: false, factor: 1 / conv.factor });
+      }
+    });
+    
+    setAvailableUnits(productUnits);
+    // تعيين الوحدة الافتراضية: إن وجدت display_unit_id وإلا الأساسية
+    const defaultUnit = product.display_unit_id 
+      ? productUnits.find(u => u.id === product.display_unit_id) 
+      : productUnits.find(u => u.isBase);
+    setEntForm(prev => ({ 
+      ...prev, 
+      unit_id: defaultUnit?.id || (productUnits[0]?.id || '')
+    }));
+  }, [entForm.product_id, products, units, unitConversions]);
 
   const filtered = clients.filter(c => c.name.includes(search) || c.phone.includes(search));
 
@@ -70,7 +142,7 @@ const ClientsPage = () => {
 
   const openEntitlements = (c: Client) => {
     setEntitlementClient(c);
-    setEntForm({ product_id: '', monthly_quantity: '' });
+    setEntForm({ product_id: '', monthly_quantity: '', unit_id: '' });
     setEntitlementDialog(true);
   };
 
@@ -83,19 +155,48 @@ const ClientsPage = () => {
       toast({ title: 'تنبيه', description: 'يرجى اختيار المنتج وتحديد الكمية', variant: 'destructive' });
       return;
     }
+    const product = products.find(p => p.id === entForm.product_id);
+    if (!product) {
+      toast({ title: 'تنبيه', description: 'المنتج غير موجود', variant: 'destructive' });
+      return;
+    }
+    
+    // تحويل الكمية المدخلة إلى الوحدة الأساسية
+    let finalQuantity = Number(entForm.monthly_quantity);
+    const baseUnitId = product.base_unit_id;
+    const selectedUnitId = entForm.unit_id;
+    
+    if (selectedUnitId && baseUnitId && selectedUnitId !== baseUnitId) {
+      // تحويل من الوحدة المختارة إلى الوحدة الأساسية
+      try {
+        const converted = convertQuantity(finalQuantity, selectedUnitId, baseUnitId);
+        finalQuantity = converted;
+      } catch (err) {
+        console.error('Conversion error:', err);
+        toast({ title: 'خطأ في التحويل', description: 'تعذر تحويل الكمية إلى الوحدة الأساسية', variant: 'destructive' });
+        return;
+      }
+    } else if (!baseUnitId && selectedUnitId === 'custom_' + product.unit) {
+      // لا تحويل، نستخدم نفس الكمية
+      finalQuantity = Number(entForm.monthly_quantity);
+    } else if (selectedUnitId && !baseUnitId) {
+      // لا توجد وحدة أساسية محددة، نستخدم الكمية كما هي
+      finalQuantity = Number(entForm.monthly_quantity);
+    }
+    
     const existing = entitlements.find(e => e.client_id === entitlementClient.id && e.product_id === entForm.product_id);
     if (existing) {
-      await updateEntitlement({ ...existing, monthly_quantity: Number(entForm.monthly_quantity) });
+      await updateEntitlement({ ...existing, monthly_quantity: finalQuantity });
       toast({ title: 'تم التحديث', description: 'تم تحديث الاستحقاق بنجاح' });
     } else {
       await addEntitlement({
         client_id: entitlementClient.id,
         product_id: entForm.product_id,
-        monthly_quantity: Number(entForm.monthly_quantity),
+        monthly_quantity: finalQuantity,
       });
       toast({ title: 'تم الإضافة', description: 'تم إضافة الاستحقاق بنجاح' });
     }
-    setEntForm({ product_id: '', monthly_quantity: '' });
+    setEntForm({ product_id: '', monthly_quantity: '', unit_id: '' });
   };
 
   const handleDeleteEntitlement = async (id: string) => {
@@ -146,7 +247,6 @@ const ClientsPage = () => {
           </div>
         </div>
         <div className="flex gap-1">
-          {/* تم تغيير لون زر الاستحقاقات من text-accent-foreground إلى text-primary */}
           <button onClick={() => openEntitlements(c)} className="p-1.5 rounded-md hover:bg-accent text-primary" title="الاستحقاقات"><ClipboardCheck className="w-3.5 h-3.5" /></button>
           <button onClick={() => openEdit(c)} className="p-1.5 rounded-md hover:bg-primary/10 text-primary"><Pencil className="w-3.5 h-3.5" /></button>
           {isAdmin && <button onClick={() => confirmDelete(c)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>}
@@ -208,7 +308,6 @@ const ClientsPage = () => {
                   <td className="p-3 text-muted-foreground hidden md:table-cell">{c.address}</td>
                   <td className="p-3">
                     <div className="flex items-center justify-center gap-1">
-                      {/* تم تغيير لون زر الاستحقاقات من text-accent-foreground إلى text-primary */}
                       <button onClick={() => openEntitlements(c)} className="p-1.5 rounded-md hover:bg-accent text-primary" title="الاستحقاقات"><ClipboardCheck className="w-4 h-4" /></button>
                       <button onClick={() => openEdit(c)} className="p-1.5 rounded-md hover:bg-primary/10 text-primary"><Pencil className="w-4 h-4" /></button>
                       {isAdmin && <button onClick={() => confirmDelete(c)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="w-4 h-4" /></button>}
@@ -261,14 +360,14 @@ const ClientsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* حوار الاستحقاقات */}
+      {/* حوار الاستحقاقات مع دعم الوحدات */}
       <Dialog open={entitlementDialog} onOpenChange={setEntitlementDialog}>
         <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader><DialogTitle className="text-base sm:text-lg">استحقاقات: {entitlementClient?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
-            {/* إضافة استحقاق جديد */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
-              <div className="space-y-1">
+            {/* نموذج إضافة استحقاق جديد مع اختيار الوحدة */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+              <div className="space-y-1 sm:col-span-2">
                 <Label className="text-xs">المنتج</Label>
                 <select
                   value={entForm.product_id}
@@ -282,21 +381,36 @@ const ClientsPage = () => {
                 </select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">الكمية الشهرية</Label>
+                <Label className="text-xs">الكمية</Label>
                 <Input
                   type="number"
                   min="0"
+                  step="any"
                   placeholder="الكمية"
                   value={entForm.monthly_quantity}
                   onChange={e => setEntForm({ ...entForm, monthly_quantity: e.target.value })}
                 />
               </div>
-              <Button onClick={handleAddEntitlement} size="sm" className="gradient-primary border-0">
+              <div className="space-y-1">
+                <Label className="text-xs">الوحدة</Label>
+                <select
+                  value={entForm.unit_id}
+                  onChange={e => setEntForm({ ...entForm, unit_id: e.target.value })}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  disabled={availableUnits.length === 0}
+                >
+                  {availableUnits.length === 0 && <option value="">اختر المنتج أولاً</option>}
+                  {availableUnits.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} {u.isBase ? '(أساسية)' : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <Button onClick={handleAddEntitlement} size="sm" className="gradient-primary border-0 sm:col-span-1">
                 <Plus className="w-4 h-4 ml-1" />إضافة
               </Button>
             </div>
 
-            {/* قائمة الاستحقاقات */}
+            {/* جدول الاستحقاقات مع عرض الوحدة المناسبة */}
             {clientEntitlements.length > 0 ? (
               <div className="border border-border rounded-lg overflow-hidden">
                 <table className="w-full text-xs sm:text-sm">
@@ -311,13 +425,28 @@ const ClientsPage = () => {
                   <tbody>
                     {clientEntitlements.map(ent => {
                       const product = products.find(p => p.id === ent.product_id);
+                      let displayUnitName = product?.unit || 'قطعة';
+                      let displayQuantity = ent.monthly_quantity;
+                      
+                      // إذا كان المنتج له وحدة عرض (display_unit_id) و pack_size
+                      if (product?.display_unit_id && product.pack_size && product.pack_size > 0) {
+                        const wholeUnits = Math.floor(ent.monthly_quantity / product.pack_size);
+                        const remainder = ent.monthly_quantity % product.pack_size;
+                        if (wholeUnits > 0 && remainder === 0) {
+                          displayQuantity = wholeUnits;
+                          displayUnitName = getUnitName(product.display_unit_id) || product.unit || 'قطعة';
+                        } else if (wholeUnits > 0 && remainder > 0) {
+                          // عرض كمية مركبة (مثلاً 2 كرتون و 3 علب) - اختياري
+                          displayQuantity = ent.monthly_quantity;
+                          displayUnitName = product.unit || 'قطعة';
+                        }
+                      }
+                      
                       return (
                         <tr key={ent.id} className="border-b border-border last:border-0">
                           <td className="p-2 font-medium">{product?.name || '-'}</td>
-                          <td className="p-2">{ent.monthly_quantity}</td>
-                          <td className="p-2 text-muted-foreground">
-                            {product?.display_unit_id ? getUnitName(product.display_unit_id) : (product?.unit || 'قطعة')}
-                          </td>
+                          <td className="p-2">{displayQuantity}</td>
+                          <td className="p-2 text-muted-foreground">{displayUnitName}</td>
                           <td className="p-2 text-center">
                             <button onClick={() => handleDeleteEntitlement(ent.id)} className="p-1 rounded hover:bg-destructive/10 text-destructive">
                               <Trash2 className="w-3.5 h-3.5" />
