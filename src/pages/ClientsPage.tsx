@@ -146,7 +146,8 @@ const ClientsPage = () => {
           </div>
         </div>
         <div className="flex gap-1">
-          <button onClick={() => openEntitlements(c)} className="p-1.5 rounded-md hover:bg-accent text-accent-foreground" title="الاستحقاقات"><ClipboardCheck className="w-3.5 h-3.5" /></button>
+          {/* تم تغيير لون زر الاستحقاقات من text-accent-foreground إلى text-primary */}
+          <button onClick={() => openEntitlements(c)} className="p-1.5 rounded-md hover:bg-accent text-primary" title="الاستحقاقات"><ClipboardCheck className="w-3.5 h-3.5" /></button>
           <button onClick={() => openEdit(c)} className="p-1.5 rounded-md hover:bg-primary/10 text-primary"><Pencil className="w-3.5 h-3.5" /></button>
           {isAdmin && <button onClick={() => confirmDelete(c)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>}
         </div>
@@ -196,7 +197,7 @@ const ClientsPage = () => {
                 <th className="text-right p-3 font-semibold text-foreground">الهاتف</th>
                 <th className="text-right p-3 font-semibold text-foreground hidden md:table-cell">العنوان</th>
                 <th className="text-center p-3 font-semibold text-foreground">إجراءات</th>
-              </tr>
+               </tr>
             </thead>
             <tbody>
               {filtered.map(c => (
@@ -207,7 +208,8 @@ const ClientsPage = () => {
                   <td className="p-3 text-muted-foreground hidden md:table-cell">{c.address}</td>
                   <td className="p-3">
                     <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => openEntitlements(c)} className="p-1.5 rounded-md hover:bg-accent text-accent-foreground" title="الاستحقاقات"><ClipboardCheck className="w-4 h-4" /></button>
+                      {/* تم تغيير لون زر الاستحقاقات من text-accent-foreground إلى text-primary */}
+                      <button onClick={() => openEntitlements(c)} className="p-1.5 rounded-md hover:bg-accent text-primary" title="الاستحقاقات"><ClipboardCheck className="w-4 h-4" /></button>
                       <button onClick={() => openEdit(c)} className="p-1.5 rounded-md hover:bg-primary/10 text-primary"><Pencil className="w-4 h-4" /></button>
                       {isAdmin && <button onClick={() => confirmDelete(c)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="w-4 h-4" /></button>}
                     </div>
