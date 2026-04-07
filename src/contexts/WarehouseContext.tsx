@@ -1136,12 +1136,41 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [movements, products]);
 
+  // ========== دوال الاستحقاقات ==========
+  const addEntitlement = useCallback(async (e: Omit<ClientEntitlement, 'id' | 'created_at'>) => {
+    const { data, error } = await (supabase as any)
+      .from('client_entitlements')
+      .insert({ client_id: e.client_id, product_id: e.product_id, monthly_quantity: e.monthly_quantity })
+      .select()
+      .single();
+    if (error) showError(error.message);
+    else if (data) setEntitlements(prev => [...prev, data as ClientEntitlement]);
+  }, []);
+
+  const updateEntitlement = useCallback(async (e: ClientEntitlement) => {
+    const { error } = await (supabase as any)
+      .from('client_entitlements')
+      .update({ monthly_quantity: e.monthly_quantity })
+      .eq('id', e.id);
+    if (error) showError(error.message);
+    else setEntitlements(prev => prev.map(ent => ent.id === e.id ? e : ent));
+  }, []);
+
+  const deleteEntitlement = useCallback(async (id: string) => {
+    const { error } = await (supabase as any)
+      .from('client_entitlements')
+      .delete()
+      .eq('id', id);
+    if (error) showError(error.message);
+    else setEntitlements(prev => prev.filter(e => e.id !== id));
+  }, []);
+
   const refreshAll = fetchAll;
 
   return (
     <WarehouseContext.Provider value={{
       products, categories, warehouses, suppliers, clients, movements, loading,
-      units, unitConversions,
+      units, unitConversions, entitlements,
       pendingCount, syncing, syncOfflineData,
       addProduct, updateProduct, deleteProduct,
       addCategory, updateCategory, deleteCategory,
@@ -1149,6 +1178,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       addSupplier, updateSupplier, deleteSupplier,
       addClient, updateClient, deleteClient,
       addMovement, updateMovement, deleteMovement,
+      addEntitlement, updateEntitlement, deleteEntitlement,
       getCategoryName, getWarehouseName, getSupplierName, getClientName, getProductName, getUserName,
       getUnitName, convertQuantity,
       isLinkedToMovement, refreshAll,
