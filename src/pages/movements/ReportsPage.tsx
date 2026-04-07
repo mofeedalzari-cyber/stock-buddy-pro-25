@@ -58,6 +58,25 @@ const ReportsPage = () => {
     : 'غير محدد';
 
   // ========== دوال مساعدة ==========
+  
+  // دالة موحدة لتنسيق الكمية مع الوحدة بناءً على إعدادات المنتج
+  const formatQuantityWithUnit = (quantity: number, product: Product): string => {
+    if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
+      const unitName = product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة');
+      return `${quantity} ${unitName}`;
+    }
+    
+    const packSize = product.pack_size;
+    const wholeUnits = Math.floor(quantity / packSize);
+    const remainder = quantity % packSize;
+    const displayUnitName = getUnitName(product.display_unit_id);
+    const baseUnitName = product.base_unit_id ? getUnitName(product.base_unit_id) : (product.unit || 'قطعة');
+    
+    if (wholeUnits === 0) return `${remainder} ${baseUnitName}`;
+    if (remainder === 0) return `${wholeUnits} ${displayUnitName}`;
+    return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
+  };
+
   const getDisplayQty = (product: Product) => {
     const totalBaseQty = selectedWarehouse
       ? getWarehouseQty(movements, product.id, selectedWarehouse)
@@ -72,17 +91,7 @@ const ReportsPage = () => {
     const totalBaseQty = selectedWarehouse
       ? getWarehouseQty(movements, product.id, selectedWarehouse)
       : getProductTotalQty(movements, product.id);
-    
-    if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
-      return `${totalBaseQty}`;
-    }
-    const wholeUnits = Math.floor(totalBaseQty / product.pack_size);
-    const remainder = totalBaseQty % product.pack_size;
-    const displayUnitName = getUnitName(product.display_unit_id);
-    const baseUnitName = getUnitName(product.base_unit_id || '');
-    if (wholeUnits === 0) return `${remainder} ${baseUnitName}`;
-    if (remainder === 0) return `${wholeUnits} ${displayUnitName}`;
-    return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
+    return formatQuantityWithUnit(totalBaseQty, product);
   };
 
   const getMovementDisplayQty = (movement: any) => {
@@ -96,30 +105,17 @@ const ReportsPage = () => {
   };
 
   const getFormattedMovementQty = (movement: any) => {
-    if (movement.display_quantity != null && movement.display_unit_id) {
-      return `${movement.display_quantity} ${getUnitName(movement.display_unit_id)}`;
-    }
-    const qty = movement.quantity ?? 0;
-    const unitId = movement.unit_id;
-    if (unitId) return `${qty} ${getUnitName(unitId)}`;
-    return `${qty} ${movement.unit || 'قطعة'}`;
+    const product = products.find(p => p.id === (movement.product_id || movement.id));
+    if (product) return formatQuantityWithUnit(movement.quantity || 0, product);
+    return `${movement.quantity || 0} ${movement.unit || 'قطعة'}`;
   };
 
   const getFormattedNetQty = (productId: string, netQty: number) => {
     const product = products.find(p => p.id === productId);
     if (!product) return `${netQty}`;
-    if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
-      return `${netQty}`;
-    }
     const absQty = Math.abs(netQty);
-    const wholeUnits = Math.floor(absQty / product.pack_size);
-    const remainder = absQty % product.pack_size;
-    const displayUnitName = getUnitName(product.display_unit_id);
-    const baseUnitName = getUnitName(product.base_unit_id || '');
-    const sign = netQty < 0 ? '-' : '';
-    if (wholeUnits === 0) return `${sign}${remainder} ${baseUnitName}`;
-    if (remainder === 0) return `${sign}${wholeUnits} ${displayUnitName}`;
-    return `${sign}${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
+    const formatted = formatQuantityWithUnit(absQty, product);
+    return netQty < 0 ? `-${formatted}` : formatted;
   };
 
   // ========== تجهيز البيانات ==========
@@ -457,24 +453,6 @@ const ReportsPage = () => {
     printPdfFromHtml(html, 'تقرير_الموردين_وجهات_الصرف', toast);
   };
 
-  const printSuppliersReport = async () => {
-    if (!checkWarehouseSelected()) return;
-    const html = buildSuppliersReportHtml(
-      selectedWarehouse, supplierItems, suppliers, getWarehouseName, getSupplierName,
-      warehouseManager, displayName || '__________', getUnitName
-    );
-    await printPdfFromHtml(html, 'تقرير_الموردين', toast);
-  };
-
-  const printClientsReport = async () => {
-    if (!checkWarehouseSelected()) return;
-    const html = buildClientsReportHtml(
-      selectedWarehouse, clientItems, clients, getWarehouseName, getClientName,
-      warehouseManager, displayName || '__________', getUnitName
-    );
-    await printPdfFromHtml(html, 'تقرير_جهات_الصرف', toast);
-  };
-
   const printSuppliersDetails = async () => {
     if (!checkWarehouseSelected()) return;
     const rows = supplierItems.map((item, idx) => [
@@ -509,41 +487,6 @@ const ReportsPage = () => {
     const clientIds = new Set(entitlements.map(e => e.client_id));
     return clients.filter(c => clientIds.has(c.id));
   }, [clients, entitlements]);
-
-  const formatQuantityWithUnit = (quantity: number, product: Product): string => {
-    if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
-      const unitName = product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة');
-      return `${quantity} ${unitName}`;
-    }
-    const packSize = product.pack_size;
-    const wholeUnits = Math.floor(quantity / packSize);
-    const remainder = quantity % packSize;
-    const displayUnitName = getUnitName(product.display_unit_id);
-    const baseUnitName = product.base_unit_id ? getUnitName(product.base_unit_id) : (product.unit || 'قطعة');
-    if (wholeUnits === 0) return `${remainder} ${baseUnitName}`;
-    if (remainder === 0) return `${wholeUnits} ${displayUnitName}`;
-    return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
-  };
-
-  // دالة لتنسيق الزيادة مع الوحدة
-  const formatOverAmountWithUnit = (overAmount: number, product: Product): string => {
-    if (overAmount <= 0) return '-';
-    
-    if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
-      const unitName = product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة');
-      return `${overAmount} ${unitName}`;
-    }
-    
-    const packSize = product.pack_size;
-    const wholeUnits = Math.floor(overAmount / packSize);
-    const remainder = overAmount % packSize;
-    const displayUnitName = getUnitName(product.display_unit_id);
-    const baseUnitName = product.base_unit_id ? getUnitName(product.base_unit_id) : (product.unit || 'قطعة');
-    
-    if (wholeUnits === 0) return `${remainder} ${baseUnitName}`;
-    if (remainder === 0) return `${wholeUnits} ${displayUnitName}`;
-    return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
-  };
 
   const entitlementReport = useMemo(() => {
     const [year, month] = entitlementMonth.split('-').map(Number);
@@ -584,13 +527,11 @@ const ReportsPage = () => {
         return {
           clientId: client.id, clientName: client.name,
           productId: ent.product_id, productName: product.name,
-          product: product,
           entitlement: formatQuantityWithUnit(baseEntitlement, product),
           actual: formatQuantityWithUnit(baseActual, product),
           remaining: formatQuantityWithUnit(baseRemaining, product),
           exceeded, 
-          overAmount: overAmount,
-          overAmountFormatted: formatOverAmountWithUnit(overAmount, product),
+          overAmountFormatted: exceeded ? formatQuantityWithUnit(overAmount, product) : '-',
           unit: product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة'),
         };
       }).filter(Boolean);
@@ -611,7 +552,7 @@ const ReportsPage = () => {
     }
     const rows = filteredData.map((r: any, i: number) => [
       String(i + 1), r.productName, r.entitlement, r.actual, r.remaining,
-      r.exceeded ? r.overAmountFormatted : '-', r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق', r.unit,
+      r.overAmountFormatted, r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق', r.unit,
     ]);
     const html = buildSimplePdfHtml(
       `تقرير استحقاقات ${clientName} - ${entitlementMonth}`,
@@ -633,7 +574,7 @@ const ReportsPage = () => {
       : `تقرير الاستحقاقات - ${entitlementMonth}`;
     const rows = dataToPrint.map((r: any, i: number) => [
       String(i + 1), r.clientName, r.productName, r.entitlement, r.actual, r.remaining,
-      r.exceeded ? r.overAmountFormatted : '-', r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق', r.unit,
+      r.overAmountFormatted, r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق', r.unit,
     ]);
     const html = buildSimplePdfHtml(
       title,
@@ -654,7 +595,7 @@ const ReportsPage = () => {
       dataToExport.map((r: any) => ({
         'جهة الصرف': r.clientName, 'المنتج': r.productName,
         'الاستحقاق الشهري': r.entitlement, 'المصروف الفعلي': r.actual,
-        'المتبقي': r.remaining, 'الزيادة': r.exceeded ? r.overAmountFormatted : 0,
+        'المتبقي': r.remaining, 'الزيادة': r.overAmountFormatted,
         'الحالة': r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق', 'الوحدة': r.unit,
       })),
       'الاستحقاقات',
@@ -788,8 +729,8 @@ const ReportsPage = () => {
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card">
             <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
               <div className="flex gap-2 flex-1">
-                <div className="flex-1"><label className="text-[10px] sm:text-xs font-medium text-muted-foreground block mb-1">من تاريخ</label><Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 sm:h-9 text-xs sm:text-sm" /></div>
-                <div className="flex-1"><label className="text-[10px] sm:text-xs font-medium text-muted-foreground block mb-1">إلى تاريخ</label><Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 sm:h-9 text-xs sm:text-sm" /></div>
+                <div className="flex-1"><label className="text-[10px] sm:text-xs font-medium text-muted-foreground block mb-1">من تاريخ</label><Input type="date" value={dateFrom} onChange={setDateFrom} className="h-8 sm:h-9 text-xs sm:text-sm" /></div>
+                <div className="flex-1"><label className="text-[10px] sm:text-xs font-medium text-muted-foreground block mb-1">إلى تاريخ</label><Input type="date" value={dateTo} onChange={setDateTo} className="h-8 sm:h-9 text-xs sm:text-sm" /></div>
               </div>
               <div className="flex rounded-lg border border-border overflow-hidden self-start sm:self-auto">
                 {(['all', 'in', 'out'] as const).map(f => (
@@ -1117,6 +1058,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">الاستحقاق</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">المصروف</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">المتبقي</th>
+                    <th className="text-right p-2 sm:p-3 font-semibold">الزيادة</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
                     <th className="text-center p-2 sm:p-3 font-semibold">الحالة</th>
                   </tr>
@@ -1130,10 +1072,11 @@ const ReportsPage = () => {
                       <td className="p-2 sm:p-3 font-bold">{r.entitlement}</td>
                       <td className="p-2 sm:p-3 font-bold">{r.actual}</td>
                       <td className="p-2 sm:p-3">{r.remaining}</td>
+                      <td className="p-2 sm:p-3 font-bold text-destructive">{r.overAmountFormatted}</td>
                       <td className="p-2 sm:p-3 text-muted-foreground">{r.unit}</td>
                       <td className="p-2 sm:p-3 text-center">
                         {r.exceeded ? (
-                          <Badge variant="destructive" className="text-[10px]">خارج الاستحقاق (+{r.overAmountFormatted})</Badge>
+                          <Badge variant="destructive" className="text-[10px]">خارج الاستحقاق</Badge>
                         ) : (
                           <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">ضمن الاستحقاق</Badge>
                         )}
@@ -1142,7 +1085,7 @@ const ReportsPage = () => {
                   ))}
                   {entitlementReport.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد استحقاقات محددة. قم بإضافة استحقاقات من صفحة جهات الصرف.</td>
+                      <td colSpan={9} className="p-8 text-center text-muted-foreground">لا توجد استحقاقات محددة. قم بإضافة استحقاقات من صفحة جهات الصرف.</td>
                     </tr>
                   )}
                 </tbody>
