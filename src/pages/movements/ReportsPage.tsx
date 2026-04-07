@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (نسخة محدثة - عرض الاستحقاقات بوحدة العرض)
+// ملف: src/pages/movements/ReportsPage.tsx (نسخة مصححة بالكامل - إصلاح أخطاء الجدول)
 // ============================================================================
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -598,7 +598,7 @@ const ReportsPage = () => {
     await printPdfFromHtml(html, 'تقرير_تفاصيل_جهات_الصرف', toast);
   };
 
-  // ========== حساب الاستحقاقات مع التحويل إلى وحدة العرض ==========
+  // ========== حساب الاستحقاقات ==========
   const [entitlementMonth, setEntitlementMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -615,7 +615,6 @@ const ReportsPage = () => {
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
     const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
 
-    // تصفية العملاء حسب المختار (إن وجد)
     const targetClients = selectedClient ? clients.filter(c => c.id === selectedClient) : clients;
 
     return targetClients.flatMap(client => {
@@ -626,7 +625,6 @@ const ReportsPage = () => {
         const product = products.find(p => p.id === ent.product_id);
         if (!product) return null;
 
-        // حساب المصروف الفعلي للشهر المحدد (بالوحدة الأساسية)
         const monthMovements = movements.filter(m =>
           m.type === 'out' &&
           m.entity_type === 'client' &&
@@ -636,35 +634,31 @@ const ReportsPage = () => {
           (!selectedWarehouse || m.warehouse_id === selectedWarehouse)
         );
 
-        let actualBaseQty = 0;
+        let actualQty = 0;
         monthMovements.forEach(m => {
           if (m.product_id === ent.product_id) {
-            actualBaseQty += (m.quantity ?? 0); // الكمية مخزنة بالوحدة الأساسية
+            actualQty += (m.display_quantity ?? m.quantity ?? 0);
           }
           if (m.items) {
             m.items.forEach(item => {
               if (item.product_id === ent.product_id) {
-                actualBaseQty += (item.quantity ?? 0);
+                actualQty += (item.display_quantity ?? item.quantity ?? 0);
               }
             });
           }
         });
 
-        // تحويل الكميات إلى وحدة العرض إذا كانت متوفرة
+        // تحويل الكمية المخزنة (بالوحدة الأساسية) إلى وحدة العرض إذا وجدت
         let displayEntitlement = ent.monthly_quantity;
-        let displayActual = actualBaseQty;
-        let displayUnit = product.unit || 'قطعة';
-        let packSize = product.pack_size ?? 1;
-        let useDisplayUnit = false;
+        let displayActual = actualQty;
+        let displayRemaining = Math.max(0, displayEntitlement - displayActual);
+        let displayUnit = product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة');
 
-        if (product.display_unit_id && packSize > 1) {
-          // تحويل من الوحدة الأساسية إلى وحدة العرض
-          displayEntitlement = ent.monthly_quantity / packSize;
-          displayActual = actualBaseQty / packSize;
+        if (product.display_unit_id && product.pack_size && product.pack_size > 1) {
+          displayEntitlement = ent.monthly_quantity / product.pack_size;
+          displayActual = actualQty / product.pack_size;
+          displayRemaining = Math.max(0, displayEntitlement - displayActual);
           displayUnit = getUnitName(product.display_unit_id);
-          useDisplayUnit = true;
-        } else if (product.base_unit_id) {
-          displayUnit = getUnitName(product.base_unit_id);
         }
 
         const exceeded = displayActual > displayEntitlement;
@@ -677,16 +671,15 @@ const ReportsPage = () => {
           productName: product.name,
           entitlement: displayEntitlement,
           actual: displayActual,
-          remaining: Math.max(0, displayEntitlement - displayActual),
+          remaining: displayRemaining,
           exceeded,
           overAmount,
           unit: displayUnit,
         };
       }).filter(Boolean);
     });
-  }, [clients, entitlements, movements, products, entitlementMonth, selectedWarehouse, selectedClient, getUnitName]);
+  }, [clients, entitlements, movements, products, entitlementMonth, selectedWarehouse, getUnitName, selectedClient]);
 
-  // دالة طباعة تقرير الاستحقاقات لجهة صرف محددة (إذا تم اختيارها)
   const printSelectedClientEntitlements = () => {
     if (!selectedClient) {
       toast({ title: 'تنبيه', description: 'يرجى اختيار جهة صرف أولاً', variant: 'destructive' });
@@ -830,7 +823,7 @@ const ReportsPage = () => {
         ))}
       </div>
 
-      {/* محتوى تبويب المنتجات (نفس الكود السابق، لم يتغير) */}
+      {/* محتوى تبويب المنتجات (تم تصحيح هيكل الجدول) */}
       {tab === 'products' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
@@ -883,7 +876,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                   </table>
+                  </tr>
                 </thead>
                 <tbody>
                   {filteredProducts.map((p, i) => {
@@ -915,7 +908,7 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب الحركات (نفس الكود السابق) */}
+      {/* محتوى تبويب الحركات (تم تصحيح هيكل الجدول) */}
       {tab === 'movements' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card">
@@ -977,7 +970,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                  </table>
+                  </tr>
                 </thead>
                 <tbody>
                   {groupByProduct ? (
@@ -1020,7 +1013,7 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب المخازن (نفس الكود السابق) */}
+      {/* محتوى تبويب المخازن */}
       {tab === 'warehouses' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-5 border border-border shadow-card">
@@ -1074,7 +1067,7 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب المخزون المنخفض (نفس الكود السابق) */}
+      {/* محتوى تبويب المخزون المنخفض */}
       {tab === 'low-stock' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
@@ -1141,7 +1134,7 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب الموردين وجهات الصرف (نفس الكود السابق) */}
+      {/* محتوى تبويب الموردين وجهات الصرف */}
       {tab === 'entities' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
@@ -1252,10 +1245,9 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب الاستحقاقات (معدل - يعرض الوحدة المعروضة) */}
+      {/* محتوى تبويب الاستحقاقات */}
       {tab === 'entitlements' && (
         <div className="space-y-4 sm:space-y-5">
-          {/* شريط التحكم: الشهر + قائمة جهات الصرف + أزرار التصدير */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex items-center gap-2">
               <label className="text-sm font-semibold text-foreground whitespace-nowrap">الشهر:</label>
@@ -1294,7 +1286,6 @@ const ReportsPage = () => {
             </div>
           </div>
 
-          {/* ملخص */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {[
               { label: 'إجمالي الاستحقاقات', value: entitlementReport.length },
@@ -1308,7 +1299,6 @@ const ReportsPage = () => {
             ))}
           </div>
 
-          {/* جدول الاستحقاقات */}
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm min-w-[700px]">
