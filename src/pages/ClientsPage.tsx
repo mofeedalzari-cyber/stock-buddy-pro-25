@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
 import { Plus, Pencil, Trash2, Search, RefreshCw, ClipboardCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,7 +14,7 @@ const ClientsPage = () => {
   const {
     clients, products, entitlements, addClient, updateClient, deleteClient,
     addEntitlement, updateEntitlement, deleteEntitlement, refreshAll,
-    getUnitName, units, unitConversions, convertQuantity
+    getUnitName, units
   } = useWarehouse();
   const { toast } = useToast();
   const { isAdmin } = useAuth();
@@ -32,62 +32,62 @@ const ClientsPage = () => {
   const [entitlementDialog, setEntitlementDialog] = useState(false);
   const [entitlementClient, setEntitlementClient] = useState<Client | null>(null);
   const [entForm, setEntForm] = useState({ product_id: '', monthly_quantity: '', unit_id: '' });
-  const [availableUnits, setAvailableUnits] = useState<{id: string, name: string, isBase: boolean, factor: number}[]>([]);
 
-  // عند تغيير المنتج، تحديث قائمة الوحدات المتاحة
+  // بناء خريطة معلومات المنتج (مثل MovementsPage)
+  const productInfoMap = useMemo(() => {
+    const map = new Map<string, { base_unit_id: string; display_unit_id: string; pack_size: number }>();
+    products.forEach(p => {
+      if (p.id) {
+        map.set(p.id, {
+          base_unit_id: p.base_unit_id || '',
+          display_unit_id: p.display_unit_id || '',
+          pack_size: p.pack_size || 1,
+        });
+      }
+    });
+    return map;
+  }, [products]);
+
+  // دالة لجلب الوحدات المتاحة لمنتج (مثل MovementsPage)
+  const getAvailableUnitsForProduct = (productId: string) => {
+    const info = productInfoMap.get(productId);
+    if (!info) return [];
+
+    const unitsList: { id: string; name: string }[] = [];
+    // إضافة الوحدة الأساسية
+    if (info.base_unit_id) {
+      unitsList.push({ id: info.base_unit_id, name: getUnitName(info.base_unit_id) });
+    }
+    // إضافة وحدة العرض إذا كانت مختلفة ولها pack_size > 1
+    if (info.display_unit_id && info.display_unit_id !== info.base_unit_id && info.pack_size > 1) {
+      unitsList.push({ id: info.display_unit_id, name: getUnitName(info.display_unit_id) });
+    }
+    return unitsList;
+  };
+
+  // دالة تحويل الكمية إلى الوحدة الأساسية (مثل MovementsPage)
+  const convertToBaseUnit = (productId: string, quantity: number, selectedUnitId: string): number => {
+    const info = productInfoMap.get(productId);
+    if (!info) return quantity;
+    if (selectedUnitId === info.display_unit_id && info.pack_size > 1) {
+      return quantity * info.pack_size;
+    }
+    return quantity;
+  };
+
+  // عند تغيير المنتج، إعادة تعيين الوحدة إلى أول وحدة متاحة
   useEffect(() => {
     if (!entForm.product_id) {
-      setAvailableUnits([]);
       setEntForm(prev => ({ ...prev, unit_id: '' }));
       return;
     }
-    const product = products.find(p => p.id === entForm.product_id);
-    if (!product) return;
-
-    const productUnits: {id: string, name: string, isBase: boolean, factor: number}[] = [];
-    
-    // الوحدة الأساسية (base_unit_id)
-    const baseUnitId = product.base_unit_id;
-    if (baseUnitId) {
-      const baseUnit = units.find(u => u.id === baseUnitId);
-      if (baseUnit) {
-        productUnits.push({ id: baseUnit.id, name: baseUnit.name, isBase: true, factor: 1 });
-      }
-    } else if (product.unit) {
-      // إذا لم يكن هناك base_unit_id، نستخدم unit كنص (قد لا يكون مرتبط بجدول الوحدات)
-      productUnits.push({ id: 'custom_' + product.unit, name: product.unit, isBase: true, factor: 1 });
+    const unitsList = getAvailableUnitsForProduct(entForm.product_id);
+    if (unitsList.length > 0) {
+      setEntForm(prev => ({ ...prev, unit_id: unitsList[0].id }));
+    } else {
+      setEntForm(prev => ({ ...prev, unit_id: '' }));
     }
-    
-    // وحدة العرض (display_unit_id) إن وجدت
-    if (product.display_unit_id && product.display_unit_id !== baseUnitId) {
-      const displayUnit = units.find(u => u.id === product.display_unit_id);
-      if (displayUnit) {
-        let factor = 1;
-        if (baseUnitId && product.pack_size && product.pack_size > 0) {
-          factor = product.pack_size;
-        } else if (baseUnitId) {
-          const conv = unitConversions.find(c => c.from_unit_id === product.display_unit_id && c.to_unit_id === baseUnitId);
-          if (conv) factor = conv.factor;
-        }
-        productUnits.push({ id: displayUnit.id, name: displayUnit.name, isBase: false, factor });
-      }
-    }
-    
-    // إذا لم يتم العثور على أي وحدة، نضيف وحدة افتراضية "قطعة"
-    if (productUnits.length === 0) {
-      productUnits.push({ id: 'default', name: product.unit || 'قطعة', isBase: true, factor: 1 });
-    }
-    
-    setAvailableUnits(productUnits);
-    // تعيين الوحدة الافتراضية: إن وجدت display_unit_id وإلا الأساسية
-    const defaultUnit = product.display_unit_id 
-      ? productUnits.find(u => u.id === product.display_unit_id) 
-      : productUnits.find(u => u.isBase);
-    setEntForm(prev => ({ 
-      ...prev, 
-      unit_id: defaultUnit?.id || (productUnits[0]?.id || '')
-    }));
-  }, [entForm.product_id, products, units, unitConversions]);
+  }, [entForm.product_id]);
 
   const filtered = clients.filter(c => c.name.includes(search) || c.phone.includes(search));
 
@@ -142,27 +142,18 @@ const ClientsPage = () => {
       toast({ title: 'تنبيه', description: 'يرجى اختيار المنتج وتحديد الكمية', variant: 'destructive' });
       return;
     }
+    if (!entForm.unit_id) {
+      toast({ title: 'تنبيه', description: 'يرجى اختيار الوحدة', variant: 'destructive' });
+      return;
+    }
     const product = products.find(p => p.id === entForm.product_id);
     if (!product) {
       toast({ title: 'تنبيه', description: 'المنتج غير موجود', variant: 'destructive' });
       return;
     }
     
-    // تحويل الكمية المدخلة إلى الوحدة الأساسية
-    let finalQuantity = Number(entForm.monthly_quantity);
-    const baseUnitId = product.base_unit_id;
-    const selectedUnitId = entForm.unit_id;
-    
-    if (selectedUnitId && baseUnitId && selectedUnitId !== baseUnitId) {
-      try {
-        const converted = convertQuantity(finalQuantity, selectedUnitId, baseUnitId);
-        finalQuantity = converted;
-      } catch (err) {
-        console.error('Conversion error:', err);
-        toast({ title: 'خطأ في التحويل', description: 'تعذر تحويل الكمية إلى الوحدة الأساسية', variant: 'destructive' });
-        return;
-      }
-    }
+    // تحويل الكمية إلى الوحدة الأساسية
+    const finalQuantity = convertToBaseUnit(entForm.product_id, Number(entForm.monthly_quantity), entForm.unit_id);
     
     const existing = entitlements.find(e => e.client_id === entitlementClient.id && e.product_id === entForm.product_id);
     if (existing) {
@@ -177,7 +168,6 @@ const ClientsPage = () => {
       toast({ title: 'تم الإضافة', description: 'تم إضافة الاستحقاق بنجاح' });
     }
     setEntForm({ product_id: '', monthly_quantity: '', unit_id: '' });
-    // تحديث قائمة الاستحقاقات (سيتم تلقائياً عبر context)
   };
 
   const handleDeleteEntitlement = async (id: string) => {
@@ -341,14 +331,14 @@ const ClientsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* حوار الاستحقاقات مع قائمة منسدلة للوحدة */}
+      {/* حوار الاستحقاقات - مع قائمة منسدلة للوحدة مشابهة لصفحة الحركات */}
       <Dialog open={entitlementDialog} onOpenChange={setEntitlementDialog}>
         <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader><DialogTitle className="text-base sm:text-lg">استحقاقات: {entitlementClient?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
-            {/* نموذج إضافة استحقاق جديد مع قائمة الوحدات */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
-              <div className="space-y-1 sm:col-span-2">
+            {/* نموذج إضافة استحقاق مع اختيار المنتج والوحدة */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+              <div className="space-y-1">
                 <Label className="text-xs">المنتج</Label>
                 <select
                   value={entForm.product_id}
@@ -362,11 +352,11 @@ const ClientsPage = () => {
                 </select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">الكمية الشهرية</Label>
+                <Label className="text-xs">الكمية</Label>
                 <Input
                   type="number"
                   min="0"
-                  step="any"
+                  step="1"
                   placeholder="الكمية"
                   value={entForm.monthly_quantity}
                   onChange={e => setEntForm({ ...entForm, monthly_quantity: e.target.value })}
@@ -378,11 +368,11 @@ const ClientsPage = () => {
                   value={entForm.unit_id}
                   onChange={e => setEntForm({ ...entForm, unit_id: e.target.value })}
                   className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  disabled={availableUnits.length === 0}
+                  disabled={!entForm.product_id}
                 >
-                  {availableUnits.length === 0 && <option value="">اختر المنتج أولاً</option>}
-                  {availableUnits.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} {u.isBase ? '(أساسية)' : ''}</option>
+                  <option value="" disabled>اختر الوحدة</option>
+                  {getAvailableUnitsForProduct(entForm.product_id).map(unit => (
+                    <option key={unit.id} value={unit.id}>{unit.name}</option>
                   ))}
                 </select>
               </div>
@@ -391,7 +381,7 @@ const ClientsPage = () => {
               </Button>
             </div>
 
-            {/* جدول عرض الاستحقاقات الحالية */}
+            {/* جدول الاستحقاقات الحالية */}
             {clientEntitlements.length > 0 ? (
               <div className="border border-border rounded-lg overflow-hidden">
                 <table className="w-full text-xs sm:text-sm">
@@ -401,21 +391,20 @@ const ClientsPage = () => {
                       <th className="text-right p-2 font-semibold">الكمية الشهرية</th>
                       <th className="text-right p-2 font-semibold">الوحدة</th>
                       <th className="text-center p-2 font-semibold">إجراء</th>
-                    </table>
+                    </tr>
                   </thead>
                   <tbody>
                     {clientEntitlements.map(ent => {
                       const product = products.find(p => p.id === ent.product_id);
-                      let displayUnit = product?.unit || 'قطعة';
+                      // عرض الكمية بالوحدة المناسبة (مثلاً إذا كانت قابلة للقسمة على pack_size نعرضها بوحدة العرض)
                       let displayQty = ent.monthly_quantity;
-                      // محاولة عرض الكمية بالوحدة المعروضة إذا أمكن
-                      if (product?.display_unit_id && product.pack_size && product.pack_size > 0) {
-                        const wholeUnits = Math.floor(ent.monthly_quantity / product.pack_size);
-                        const remainder = ent.monthly_quantity % product.pack_size;
-                        if (wholeUnits > 0 && remainder === 0) {
-                          displayQty = wholeUnits;
-                          displayUnit = getUnitName(product.display_unit_id) || product.unit || 'قطعة';
-                        }
+                      let displayUnit = product?.unit || 'قطعة';
+                      const info = productInfoMap.get(ent.product_id);
+                      if (info && info.display_unit_id && info.pack_size > 1 && ent.monthly_quantity % info.pack_size === 0) {
+                        displayQty = ent.monthly_quantity / info.pack_size;
+                        displayUnit = getUnitName(info.display_unit_id);
+                      } else if (info && info.base_unit_id) {
+                        displayUnit = getUnitName(info.base_unit_id);
                       }
                       return (
                         <tr key={ent.id} className="border-b border-border last:border-0">
