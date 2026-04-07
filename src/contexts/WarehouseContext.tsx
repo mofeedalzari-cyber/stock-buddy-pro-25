@@ -134,6 +134,15 @@ export interface UnitConversion {
   factor: number;
 }
 
+export interface ClientEntitlement {
+  id: string;
+  client_id: string;
+  product_id: string;
+  monthly_quantity: number;
+  organization_id?: string;
+  created_at: string;
+}
+
 interface WarehouseContextType {
   products: Product[];
   categories: Category[];
@@ -144,9 +153,13 @@ interface WarehouseContextType {
   loading: boolean;
   units: Unit[];
   unitConversions: UnitConversion[];
+  entitlements: ClientEntitlement[];
   pendingCount: number;
   syncing: boolean;
   syncOfflineData: () => Promise<void>;
+  addEntitlement: (e: Omit<ClientEntitlement, 'id' | 'created_at'>) => Promise<void>;
+  updateEntitlement: (e: ClientEntitlement) => Promise<void>;
+  deleteEntitlement: (id: string) => Promise<void>;
   addProduct: (p: Omit<Product, 'id' | 'created_at' | 'created_by'>) => Promise<Product | null>;
   updateProduct: (p: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<boolean>;
@@ -189,6 +202,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitConversions, setUnitConversions] = useState<UnitConversion[]>([]);
+  const [entitlements, setEntitlements] = useState<ClientEntitlement[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(getQueueCount());
   const [syncing, setSyncing] = useState(false);
