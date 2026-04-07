@@ -207,6 +207,7 @@ const ClientsPage = () => {
                   <td className="p-3 text-muted-foreground hidden md:table-cell">{c.address}</td>
                   <td className="p-3">
                     <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => openEntitlements(c)} className="p-1.5 rounded-md hover:bg-accent text-accent-foreground" title="الاستحقاقات"><ClipboardCheck className="w-4 h-4" /></button>
                       <button onClick={() => openEdit(c)} className="p-1.5 rounded-md hover:bg-primary/10 text-primary"><Pencil className="w-4 h-4" /></button>
                       {isAdmin && <button onClick={() => confirmDelete(c)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="w-4 h-4" /></button>}
                     </div>
