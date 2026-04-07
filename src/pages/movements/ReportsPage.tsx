@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (نسخة معدلة لعرض الكميات بشكل مقروء)
+// ملف: src/pages/movements/ReportsPage.tsx (نسخة مصححة بالكامل - إصلاح أخطاء الجدول)
 // ============================================================================
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -25,31 +25,10 @@ import {
   buildSimplePdfHtml
 } from './reportsUtils';
 import { Product } from '@/types/warehouse';
+
 import { Badge } from '@/components/ui/badge';
 
 type ReportTab = 'products' | 'movements' | 'warehouses' | 'low-stock' | 'entities' | 'entitlements';
-
-// دالة مساعدة لتنسيق الكمية مع الوحدة (مثل "2 كرتون و 1 علبة")
-const formatQuantityWithUnit = (quantity: number, product: Product, getUnitName: (id: string) => string): string => {
-  if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
-    const unitName = product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة');
-    return `${quantity} ${unitName}`;
-  }
-  
-  const packSize = product.pack_size;
-  const wholeUnits = Math.floor(quantity / packSize);
-  const remainder = quantity % packSize;
-  const displayUnitName = getUnitName(product.display_unit_id);
-  const baseUnitName = product.base_unit_id ? getUnitName(product.base_unit_id) : (product.unit || 'قطعة');
-  
-  if (wholeUnits === 0) {
-    return `${remainder} ${baseUnitName}`;
-  }
-  if (remainder === 0) {
-    return `${wholeUnits} ${displayUnitName}`;
-  }
-  return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
-};
 
 const ReportsPage = () => {
   const {
@@ -631,6 +610,28 @@ const ReportsPage = () => {
     return clients.filter(c => clientIds.has(c.id));
   }, [clients, entitlements]);
 
+  // دالة مساعدة لتنسيق الكمية مع الوحدة
+  const formatQuantityWithUnit = (quantity: number, product: Product): string => {
+    if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
+      const unitName = product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة');
+      return `${quantity} ${unitName}`;
+    }
+    
+    const packSize = product.pack_size;
+    const wholeUnits = Math.floor(quantity / packSize);
+    const remainder = quantity % packSize;
+    const displayUnitName = getUnitName(product.display_unit_id);
+    const baseUnitName = product.base_unit_id ? getUnitName(product.base_unit_id) : (product.unit || 'قطعة');
+    
+    if (wholeUnits === 0) {
+      return `${remainder} ${baseUnitName}`;
+    }
+    if (remainder === 0) {
+      return `${wholeUnits} ${displayUnitName}`;
+    }
+    return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
+  };
+
   const entitlementReport = useMemo(() => {
     const [year, month] = entitlementMonth.split('-').map(Number);
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -670,19 +671,17 @@ const ReportsPage = () => {
           }
         });
 
-        // الكمية المستحقة (بالوحدة الأساسية) - ملاحظة: ent.monthly_quantity مخزنة بالوحدة الأساسية
         const baseEntitlement = ent.monthly_quantity;
         const baseActual = actualQty;
         const baseRemaining = Math.max(0, baseEntitlement - baseActual);
         const exceeded = baseActual > baseEntitlement;
         const overAmount = exceeded ? baseActual - baseEntitlement : 0;
 
-        // تنسيق الكميات للعرض باستخدام الدالة المساعدة
-        const displayEntitlement = formatQuantityWithUnit(baseEntitlement, product, getUnitName);
-        const displayActual = formatQuantityWithUnit(baseActual, product, getUnitName);
-        const displayRemaining = formatQuantityWithUnit(baseRemaining, product, getUnitName);
+        // تنسيق الكميات للعرض
+        const displayEntitlement = formatQuantityWithUnit(baseEntitlement, product);
+        const displayActual = formatQuantityWithUnit(baseActual, product);
+        const displayRemaining = formatQuantityWithUnit(baseRemaining, product);
         
-        // وحدة العرض الأساسية (للاستخدام في الحالة)
         const displayUnit = product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة');
 
         return {
@@ -690,16 +689,12 @@ const ReportsPage = () => {
           clientName: client.name,
           productId: ent.product_id,
           productName: product.name,
-          entitlement: displayEntitlement,   // نص منسق
-          actual: displayActual,             // نص منسق
-          remaining: displayRemaining,       // نص منسق
+          entitlement: displayEntitlement,
+          actual: displayActual,
+          remaining: displayRemaining,
           exceeded,
           overAmount,
           unit: displayUnit,
-          // احتفظ بالقيم الرقمية للحسابات إذا لزم الأمر
-          baseEntitlement,
-          baseActual,
-          baseRemaining,
         };
       }).filter(Boolean);
     });
@@ -923,7 +918,7 @@ const ReportsPage = () => {
                         <td className="p-2 sm:p-3 text-muted-foreground">
                           {p.display_unit_id ? getUnitName(p.display_unit_id) : (p.unit || 'قطعة')}
                         </td>
-                      </table>
+                      </tr>
                     );
                   })}
                 </tbody>
@@ -1083,7 +1078,7 @@ const ReportsPage = () => {
                       <td className="p-2 sm:p-3">{d.warehouseName}</td>
                       <td className="p-2 sm:p-3 font-bold">{getFormattedQuantityForProduct(d.product)}</td>
                       <td className="p-2 sm:p-3">{d.unit}</td>
-                    </table>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -1149,7 +1144,7 @@ const ReportsPage = () => {
                             {qty === 0 ? 'نفذ' : 'منخفض'}
                           </span>
                         </td>
-                      </tr>
+                      <tr>
                     );
                   })}
                 </tbody>
@@ -1204,7 +1199,7 @@ const ReportsPage = () => {
                       <td className="p-2 font-bold">{getFormattedMovementQty(item)}</td>
                       <td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td>
                       <td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td>
-                    </table>
+                    </tr>
                   ))}
                   {supplierItems.length === 0 && (
                     <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد حركات موردين</td></tr>
@@ -1359,15 +1354,22 @@ const ReportsPage = () => {
                             ضمن الاستحقاق
                           </Badge>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                  {entitlementReport.length === 0 && (
-                    <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد استحقاقات محددة. قم بإضافة استحقاقات من صفحة جهات الصرف.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                                                  </td>
+                          </tr>
+                        ))}
+                        {entitlementReport.length === 0 && (
+                          <tr>
+                            <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                              لا توجد استحقاقات محددة. قم بإضافة استحقاقات من صفحة جهات الصرف.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
