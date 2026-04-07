@@ -68,6 +68,41 @@ const ClientsPage = () => {
     setBulkDeleteDialog(false);
   };
 
+  const openEntitlements = (c: Client) => {
+    setEntitlementClient(c);
+    setEntForm({ product_id: '', monthly_quantity: '' });
+    setEntitlementDialog(true);
+  };
+
+  const clientEntitlements = entitlementClient
+    ? entitlements.filter(e => e.client_id === entitlementClient.id)
+    : [];
+
+  const handleAddEntitlement = async () => {
+    if (!entitlementClient || !entForm.product_id || !entForm.monthly_quantity) {
+      toast({ title: 'تنبيه', description: 'يرجى اختيار المنتج وتحديد الكمية', variant: 'destructive' });
+      return;
+    }
+    const existing = entitlements.find(e => e.client_id === entitlementClient.id && e.product_id === entForm.product_id);
+    if (existing) {
+      await updateEntitlement({ ...existing, monthly_quantity: Number(entForm.monthly_quantity) });
+      toast({ title: 'تم التحديث', description: 'تم تحديث الاستحقاق بنجاح' });
+    } else {
+      await addEntitlement({
+        client_id: entitlementClient.id,
+        product_id: entForm.product_id,
+        monthly_quantity: Number(entForm.monthly_quantity),
+      });
+      toast({ title: 'تم الإضافة', description: 'تم إضافة الاستحقاق بنجاح' });
+    }
+    setEntForm({ product_id: '', monthly_quantity: '' });
+  };
+
+  const handleDeleteEntitlement = async (id: string) => {
+    await deleteEntitlement(id);
+    toast({ title: 'تم الحذف', description: 'تم حذف الاستحقاق' });
+  };
+
   const openAdd = () => { setEditing(null); setForm({ name: '', phone: '', address: '', notes: '' }); setDialogOpen(true); };
   const openEdit = (c: Client) => { setEditing(c); setForm({ name: c.name, phone: c.phone, address: c.address, notes: c.notes || '' }); setDialogOpen(true); };
 
