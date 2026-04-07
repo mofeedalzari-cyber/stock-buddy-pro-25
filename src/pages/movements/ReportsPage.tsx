@@ -525,6 +525,26 @@ const ReportsPage = () => {
     return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
   };
 
+  // دالة لتنسيق الزيادة مع الوحدة
+  const formatOverAmountWithUnit = (overAmount: number, product: Product): string => {
+    if (overAmount <= 0) return '-';
+    
+    if (!product.display_unit_id || !product.pack_size || product.pack_size <= 1) {
+      const unitName = product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة');
+      return `${overAmount} ${unitName}`;
+    }
+    
+    const packSize = product.pack_size;
+    const wholeUnits = Math.floor(overAmount / packSize);
+    const remainder = overAmount % packSize;
+    const displayUnitName = getUnitName(product.display_unit_id);
+    const baseUnitName = product.base_unit_id ? getUnitName(product.base_unit_id) : (product.unit || 'قطعة');
+    
+    if (wholeUnits === 0) return `${remainder} ${baseUnitName}`;
+    if (remainder === 0) return `${wholeUnits} ${displayUnitName}`;
+    return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
+  };
+
   const entitlementReport = useMemo(() => {
     const [year, month] = entitlementMonth.split('-').map(Number);
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -564,10 +584,13 @@ const ReportsPage = () => {
         return {
           clientId: client.id, clientName: client.name,
           productId: ent.product_id, productName: product.name,
+          product: product, // حفظ المنتج للاستخدام في تنسيق الوحدة
           entitlement: formatQuantityWithUnit(baseEntitlement, product),
           actual: formatQuantityWithUnit(baseActual, product),
           remaining: formatQuantityWithUnit(baseRemaining, product),
-          exceeded, overAmount,
+          exceeded, 
+          overAmount: overAmount,
+          overAmountFormatted: formatOverAmountWithUnit(overAmount, product),
           unit: product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة'),
         };
       }).filter(Boolean);
@@ -588,7 +611,7 @@ const ReportsPage = () => {
     }
     const rows = filteredData.map((r: any, i: number) => [
       String(i + 1), r.productName, r.entitlement, r.actual, r.remaining,
-      r.exceeded ? String(r.overAmount) : '-', r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق', r.unit,
+      r.exceeded ? r.overAmountFormatted : '-', r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق', r.unit,
     ]);
     const html = buildSimplePdfHtml(
       `تقرير استحقاقات ${clientName} - ${entitlementMonth}`,
@@ -610,7 +633,7 @@ const ReportsPage = () => {
       : `تقرير الاستحقاقات - ${entitlementMonth}`;
     const rows = dataToPrint.map((r: any, i: number) => [
       String(i + 1), r.clientName, r.productName, r.entitlement, r.actual, r.remaining,
-      r.exceeded ? String(r.overAmount) : '-', r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق', r.unit,
+      r.exceeded ? r.overAmountFormatted : '-', r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق', r.unit,
     ]);
     const html = buildSimplePdfHtml(
       title,
@@ -631,7 +654,7 @@ const ReportsPage = () => {
       dataToExport.map((r: any) => ({
         'جهة الصرف': r.clientName, 'المنتج': r.productName,
         'الاستحقاق الشهري': r.entitlement, 'المصروف الفعلي': r.actual,
-        'المتبقي': r.remaining, 'الزيادة': r.exceeded ? r.overAmount : 0,
+        'المتبقي': r.remaining, 'الزيادة': r.exceeded ? r.overAmountFormatted : 0,
         'الحالة': r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق', 'الوحدة': r.unit,
       })),
       'الاستحقاقات',
@@ -890,11 +913,11 @@ const ReportsPage = () => {
           </div>
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2"><h3 className="font-semibold text-foreground text-sm sm:text-base flex items-center gap-2"><ArrowDownCircle className="w-4 h-4 text-success" /> تفاصيل حركات الموردين</h3><Button size="sm" variant="outline" onClick={printSuppliersDetails} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" />طباعة التقرير</Button></div>
-            <div className="overflow-x-auto p-3"><table className="w-full text-xs sm:text-sm"><thead><tr className="bg-secondary/50 border-b border-border"><th className="text-right p-2 font-semibold">م</th><th className="text-right p-2 font-semibold">المورد</th><th className="text-right p-2 font-semibold">المنتج</th><th className="text-right p-2 font-semibold">الكمية</th><th className="text-right p-2 font-semibold">الوحدة</th><th className="text-right p-2 font-semibold">المخزن</th></tr></thead><tbody>{supplierItems.map((item, idx) => (<tr key={item.itemId} className="border-b border-border hover:bg-secondary/30"><td className="p-2">{idx + 1}</td><td className="p-2 font-medium">{getSupplierName(item.entity_id)}</td><td className="p-2">{item.productName}</td><td className="p-2 font-bold">{getFormattedMovementQty(item)}</td><td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td><td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td></tr>))}{supplierItems.length === 0 && (<tr><td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد حركات موردين</td></tr>)}</tbody></table></div>
+            <div className="overflow-x-auto p-3"><table className="w-full text-xs sm:text-sm"><thead><tr className="bg-secondary/50 border-b border-border"><th className="text-right p-2 font-semibold">م</th><th className="text-right p-2 font-semibold">المورد</th><th className="text-right p-2 font-semibold">المنتج</th><th className="text-right p-2 font-semibold">الكمية</th><th className="text-right p-2 font-semibold">الوحدة</th><th className="text-right p-2 font-semibold">المخزن</th></tr></thead><tbody>{supplierItems.map((item, idx) => (<tr key={item.itemId} className="border-b border-border hover:bg-secondary/30"><td className="p-2">{idx + 1}</td><td className="p-2 font-medium">{getSupplierName(item.entity_id)}</td><td className="p-2">{item.productName}</td><td className="p-2 font-bold">{getFormattedMovementQty(item)}</td><td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td><td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td></tr>))}{supplierItems.length === 0 && (<tr><td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد حركات موردين</td></tr>)}</tbody>}</table></div>
           </div>
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2"><h3 className="font-semibold text-foreground text-sm sm:text-base flex items-center gap-2"><ArrowUpCircle className="w-4 h-4 text-destructive" /> تفاصيل حركات جهات الصرف</h3><Button size="sm" variant="outline" onClick={printClientsDetails} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" />طباعة التقرير</Button></div>
-            <div className="overflow-x-auto p-3"><table className="w-full text-xs sm:text-sm"><thead><tr className="bg-secondary/50 border-b border-border"><th className="text-right p-2 font-semibold">م</th><th className="text-right p-2 font-semibold">جهة الصرف</th><th className="text-right p-2 font-semibold">المنتج</th><th className="text-right p-2 font-semibold">الكمية</th><th className="text-right p-2 font-semibold">الوحدة</th><th className="text-right p-2 font-semibold">المخزن</th><th className="text-right p-2 font-semibold">النوع</th></tr></thead><tbody>{clientItems.map((item, idx) => (<tr key={item.itemId} className="border-b border-border hover:bg-secondary/30"><td className="p-2">{idx + 1}</td><td className="p-2 font-medium">{getClientName(item.entity_id)}</td><td className="p-2">{item.productName}</td><td className="p-2 font-bold">{getFormattedMovementQty(item)}</td><td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td><td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td><td className="p-2"><span className="px-2 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive">منصرف</span></td></tr>))}{clientItems.length === 0 && (<tr><td colSpan={7} className="p-4 text-center text-muted-foreground">لا توجد حركات جهات صرف</td></tr>)}</tbody></table></div>
+            <div className="overflow-x-auto p-3"><table className="w-full text-xs sm:text-sm"><thead><tr className="bg-secondary/50 border-b border-border"><th className="text-right p-2 font-semibold">م</th><th className="text-right p-2 font-semibold">جهة الصرف</th><th className="text-right p-2 font-semibold">المنتج</th><th className="text-right p-2 font-semibold">الكمية</th><th className="text-right p-2 font-semibold">الوحدة</th><th className="text-right p-2 font-semibold">المخزن</th><th className="text-right p-2 font-semibold">النوع</th></tr></thead><tbody>{clientItems.map((item, idx) => (<tr key={item.itemId} className="border-b border-border hover:bg-secondary/30"><td className="p-2">{idx + 1}</td><td className="p-2 font-medium">{getClientName(item.entity_id)}</td><td className="p-2">{item.productName}</td><td className="p-2 font-bold">{getFormattedMovementQty(item)}</td><td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td><td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td><td className="p-2"><span className="px-2 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive">منصرف</span></td></tr>))}{clientItems.length === 0 && (<tr><td colSpan={7} className="p-4 text-center text-muted-foreground">لا توجد حركات جهات صرف</td></tr>)}</tbody>}</table></div>
           </div>
           <div className="flex gap-2 justify-end"><Button size="sm" variant="outline" onClick={exportEntitiesExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />تصدير Excel شامل</Button><Button size="sm" variant="outline" onClick={exportEntitiesPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3"><FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />تصدير PDF شامل</Button></div>
         </div>
@@ -917,7 +940,7 @@ const ReportsPage = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm min-w-[700px]">
                 <thead><tr className="bg-secondary/50 border-b border-border"><th className="text-right p-2 sm:p-3 font-semibold">م</th><th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th><th className="text-right p-2 sm:p-3 font-semibold">المنتج</th><th className="text-right p-2 sm:p-3 font-semibold">الاستحقاق</th><th className="text-right p-2 sm:p-3 font-semibold">المصروف</th><th className="text-right p-2 sm:p-3 font-semibold">المتبقي</th><th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th><th className="text-center p-2 sm:p-3 font-semibold">الحالة</th></tr></thead>
-                <tbody>{entitlementReport.map((r: any, i: number) => (<tr key={`${r.clientId}-${r.productId}`} className={`border-b border-border hover:bg-secondary/30 ${r.exceeded ? 'bg-destructive/5' : ''}`}><td className="p-2 sm:p-3">{i + 1}</td><td className="p-2 sm:p-3 font-medium">{r.clientName}</td><td className="p-2 sm:p-3">{r.productName}</td><td className="p-2 sm:p-3 font-bold">{r.entitlement}</td><td className="p-2 sm:p-3 font-bold">{r.actual}</td><td className="p-2 sm:p-3">{r.remaining}</td><td className="p-2 sm:p-3 text-muted-foreground">{r.unit}</td><td className="p-2 sm:p-3 text-center">{r.exceeded ? (<Badge variant="destructive" className="text-[10px]">خارج الاستحقاق (+{r.overAmount})</Badge>) : (<Badge variant="outline" className="text-[10px] border-green-500 text-green-600">ضمن الاستحقاق</Badge>)}</td></tr>))}{entitlementReport.length === 0 && (<tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد استحقاقات محددة. قم بإضافة استحقاقات من صفحة جهات الصرف.</td></tr>)}</tbody>
+                <tbody>{entitlementReport.map((r: any, i: number) => (<tr key={`${r.clientId}-${r.productId}`} className={`border-b border-border hover:bg-secondary/30 ${r.exceeded ? 'bg-destructive/5' : ''}`}><td className="p-2 sm:p-3">{i + 1}</td><td className="p-2 sm:p-3 font-medium">{r.clientName}</td><td className="p-2 sm:p-3">{r.productName}</td><td className="p-2 sm:p-3 font-bold">{r.entitlement}</td><td className="p-2 sm:p-3 font-bold">{r.actual}</td><td className="p-2 sm:p-3">{r.remaining}</td><td className="p-2 sm:p-3 text-muted-foreground">{r.unit}</td><td className="p-2 sm:p-3 text-center">{r.exceeded ? (<Badge variant="destructive" className="text-[10px]">خارج الاستحقاق (+{r.overAmountFormatted})</Badge>) : (<Badge variant="outline" className="text-[10px] border-green-500 text-green-600">ضمن الاستحقاق</Badge>)}</td></tr>))}{entitlementReport.length === 0 && (<tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد استحقاقات محددة. قم بإضافة استحقاقات من صفحة جهات الصرف.</td></tr>)}</tbody>
               </table>
             </div>
           </div>
