@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (نسخة مصححة بالكامل - إصلاح أخطاء الجدول)
+// ملف: src/pages/movements/ReportsPage.tsx (نسخة مصححة - الجزء 1 من 4)
 // ============================================================================
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -291,8 +291,7 @@ const ReportsPage = () => {
     }
     return true;
   };
-
-  const exportProductsExcel = () => {
+    const exportProductsExcel = () => {
     if (!checkWarehouseSelected()) return;
     exportExcel(
       filteredProducts.map(p => ({
@@ -631,8 +630,7 @@ const ReportsPage = () => {
     }
     return `${wholeUnits} ${displayUnitName} و ${remainder} ${baseUnitName}`;
   };
-
-  const entitlementReport = useMemo(() => {
+    const entitlementReport = useMemo(() => {
     const [year, month] = entitlementMonth.split('-').map(Number);
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
     const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
@@ -796,8 +794,7 @@ const ReportsPage = () => {
       selectedClient ? `استحقاقات_${clients.find(c => c.id === selectedClient)?.name}` : 'تقرير_الاستحقاقات'
     );
   };
-
-  const tabs: { id: ReportTab; label: string; icon: any }[] = [
+    const tabs: { id: ReportTab; label: string; icon: any }[] = [
     { id: 'products', label: 'المنتجات', icon: Package },
     { id: 'movements', label: 'الحركات', icon: ArrowDownCircle },
     { id: 'warehouses', label: 'المخازن', icon: Building2 },
@@ -843,7 +840,7 @@ const ReportsPage = () => {
         ))}
       </div>
 
-      {/* محتوى تبويب المنتجات */}
+      {/* محتوى تبويب المنتجات - الجزء الأول */}
       {tab === 'products' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
@@ -896,7 +893,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  </table>
+                  </td>
                 </thead>
                 <tbody>
                   {filteredProducts.map((p, i) => {
@@ -990,7 +987,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                  </tr>
+                  </td>
                 </thead>
                 <tbody>
                   {groupByProduct ? (
@@ -1069,7 +1066,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  </tr>
+                  </td>
                 </thead>
                 <tbody>
                   {warehouseStockDetails.map((d, i) => (
@@ -1188,7 +1185,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 font-semibold">الكمية</th>
                     <th className="text-right p-2 font-semibold">الوحدة</th>
                     <th className="text-right p-2 font-semibold">المخزن</th>
-                  </tr>
+                  </td>
                 </thead>
                 <tbody>
                   {supplierItems.map((item, idx) => (
@@ -1202,9 +1199,7 @@ const ReportsPage = () => {
                     </tr>
                   ))}
                   {supplierItems.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد حركات موردين</td>
-                    </tr>
+                    <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد حركات موردين</td></tr>
                   )}
                 </tbody>
               </table>
@@ -1249,9 +1244,7 @@ const ReportsPage = () => {
                     </tr>
                   ))}
                   {clientItems.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="p-4 text-center text-muted-foreground">لا توجد حركات جهات صرف</td>
-                    </tr>
+                    <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">لا توجد حركات جهات صرف</td></tr>
                   )}
                 </tbody>
               </table>
