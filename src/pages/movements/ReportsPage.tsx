@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (نسخة مصححة نهائياً)
+// ملف: src/pages/movements/ReportsPage.tsx (نسخة مصححة - تنسيق كمية الزيادة بالوحدات)
 // ============================================================================
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -48,7 +48,6 @@ const ReportsPage = () => {
   const [selectedWarehouse, setSelectedWarehouse] = useState('');
   const [groupByProduct, setGroupByProduct] = useState(false);
   
-  // حالة اختيار جهة الصرف في تقرير الاستحقاقات
   const [selectedClient, setSelectedClient] = useState<string>('');
 
   const warehouseManager = selectedWarehouse
@@ -523,36 +522,6 @@ const ReportsPage = () => {
     printPdfFromHtml(html, 'تقرير_الموردين_وجهات_الصرف', toast);
   };
 
-  const printSuppliersReport = async () => {
-    if (!checkWarehouseSelected()) return;
-    const html = buildSuppliersReportHtml(
-      selectedWarehouse,
-      supplierItems,
-      suppliers,
-      getWarehouseName,
-      getSupplierName,
-      warehouseManager,
-      displayName || '__________',
-      getUnitName
-    );
-    await printPdfFromHtml(html, 'تقرير_الموردين', toast);
-  };
-
-  const printClientsReport = async () => {
-    if (!checkWarehouseSelected()) return;
-    const html = buildClientsReportHtml(
-      selectedWarehouse,
-      clientItems,
-      clients,
-      getWarehouseName,
-      getClientName,
-      warehouseManager,
-      displayName || '__________',
-      getUnitName
-    );
-    await printPdfFromHtml(html, 'تقرير_جهات_الصرف', toast);
-  };
-
   const printSuppliersDetails = async () => {
     if (!checkWarehouseSelected()) return;
     const rows = supplierItems.map((item, idx) => [
@@ -604,7 +573,6 @@ const ReportsPage = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // جهات الصرف التي لديها استحقاقات على الأقل
   const clientsWithEntitlements = useMemo(() => {
     const clientIds = new Set(entitlements.map(e => e.client_id));
     return clients.filter(c => clientIds.has(c.id));
@@ -647,7 +615,6 @@ const ReportsPage = () => {
         const product = products.find(p => p.id === ent.product_id);
         if (!product) return null;
 
-        // حساب المصروف الفعلي للشهر المحدد (بالوحدة الأساسية)
         const monthMovements = movements.filter(m =>
           m.type === 'out' &&
           m.entity_type === 'client' &&
@@ -675,26 +642,22 @@ const ReportsPage = () => {
         const baseActual = actualQty;
         const baseRemaining = Math.max(0, baseEntitlement - baseActual);
         const exceeded = baseActual > baseEntitlement;
-        const overAmount = exceeded ? baseActual - baseEntitlement : 0;
+        const rawOverAmount = exceeded ? baseActual - baseEntitlement : 0;
 
-        // تنسيق الكميات للعرض
-        const displayEntitlement = formatQuantityWithUnit(baseEntitlement, product);
-        const displayActual = formatQuantityWithUnit(baseActual, product);
-        const displayRemaining = formatQuantityWithUnit(baseRemaining, product);
-        
-        const displayUnit = product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة');
+        // تنسيق كمية الزيادة بالوحدات المعروضة
+        const displayOverAmountFormatted = exceeded ? formatQuantityWithUnit(rawOverAmount, product) : '-';
 
         return {
           clientId: client.id,
           clientName: client.name,
           productId: ent.product_id,
           productName: product.name,
-          entitlement: displayEntitlement,
-          actual: displayActual,
-          remaining: displayRemaining,
+          entitlement: formatQuantityWithUnit(baseEntitlement, product),
+          actual: formatQuantityWithUnit(baseActual, product),
+          remaining: formatQuantityWithUnit(baseRemaining, product),
           exceeded,
-          overAmount,
-          unit: displayUnit,
+          overAmount: displayOverAmountFormatted, // النص المنسق للزيادة
+          unit: product.display_unit_id ? getUnitName(product.display_unit_id) : (product.unit || 'قطعة'),
         };
       }).filter(Boolean);
     });
@@ -720,7 +683,7 @@ const ReportsPage = () => {
       r.entitlement,
       r.actual,
       r.remaining,
-      r.exceeded ? String(r.overAmount) : '-',
+      r.overAmount, // الآن يعرض القيمة منسقة مع الوحدة
       r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق',
       r.unit,
     ]);
@@ -756,7 +719,7 @@ const ReportsPage = () => {
       r.entitlement,
       r.actual,
       r.remaining,
-      r.exceeded ? String(r.overAmount) : '-',
+      r.overAmount, // منسق بالوحدة
       r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق',
       r.unit,
     ]);
@@ -788,7 +751,7 @@ const ReportsPage = () => {
         'الاستحقاق الشهري': r.entitlement,
         'المصروف الفعلي': r.actual,
         'المتبقي': r.remaining,
-        'الزيادة': r.exceeded ? r.overAmount : 0,
+        'الزيادة': r.overAmount,
         'الحالة': r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق',
         'الوحدة': r.unit,
       })),
@@ -808,7 +771,6 @@ const ReportsPage = () => {
 
   return (
     <div className="space-y-4 sm:space-y-5" dir="rtl">
-      {/* القسم العلوي: اختيار المخزن */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <label className="text-sm font-semibold text-foreground whitespace-nowrap">المخزن:</label>
@@ -831,7 +793,6 @@ const ReportsPage = () => {
         </Button>
       </div>
 
-      {/* شريط التبويبات */}
       <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
@@ -843,7 +804,6 @@ const ReportsPage = () => {
         ))}
       </div>
 
-      {/* محتوى تبويب المنتجات */}
       {tab === 'products' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
@@ -858,7 +818,6 @@ const ReportsPage = () => {
               </div>
             ))}
           </div>
-
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-5 border border-border shadow-card">
             <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-3 sm:mb-4">توزيع المنتجات حسب الصنف</h3>
             <ResponsiveContainer width="100%" height={200}>
@@ -871,7 +830,6 @@ const ReportsPage = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2">
               <h3 className="font-semibold text-foreground text-sm sm:text-base">جدول المنتجات</h3>
@@ -928,7 +886,6 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب الحركات */}
       {tab === 'movements' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card">
@@ -955,7 +912,6 @@ const ReportsPage = () => {
               </div>
             </div>
           </div>
-
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
             <div className="p-3 sm:p-4 border-b border-border">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -965,15 +921,9 @@ const ReportsPage = () => {
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant={!groupByProduct ? "default" : "outline"} onClick={() => setGroupByProduct(false)} className="h-8 text-xs">عرض تفصيلي</Button>
                   <Button size="sm" variant={groupByProduct ? "default" : "outline"} onClick={() => setGroupByProduct(true)} className="h-8 text-xs">عرض ملخص</Button>
-                  <Button size="sm" variant="outline" onClick={exportMovementsExcel} className="h-8 text-xs gap-1.5">
-                    <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={exportMovementsPdf} className="h-8 text-xs gap-1.5">
-                    <FileText className="w-3.5 h-3.5" /> PDF
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={printMovements} className="h-8 text-xs gap-1.5">
-                    <Printer className="w-3.5 h-3.5" /> طباعة
-                  </Button>
+                  <Button size="sm" variant="outline" onClick={exportMovementsExcel} className="h-8 text-xs gap-1.5"><FileSpreadsheet className="w-3.5 h-3.5" /> Excel</Button>
+                  <Button size="sm" variant="outline" onClick={exportMovementsPdf} className="h-8 text-xs gap-1.5"><FileText className="w-3.5 h-3.5" /> PDF</Button>
+                  <Button size="sm" variant="outline" onClick={printMovements} className="h-8 text-xs gap-1.5"><Printer className="w-3.5 h-3.5" /> طباعة</Button>
                 </div>
               </div>
             </div>
@@ -1033,7 +983,6 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب المخازن */}
       {tab === 'warehouses' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-5 border border-border shadow-card">
@@ -1087,7 +1036,6 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب المخزون المنخفض */}
       {tab === 'low-stock' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
@@ -1154,7 +1102,6 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب الموردين وجهات الصرف */}
       {tab === 'entities' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
@@ -1167,7 +1114,6 @@ const ReportsPage = () => {
               <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">جهات صرف نشطة</div>
             </div>
           </div>
-
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2">
               <h3 className="font-semibold text-foreground text-sm sm:text-base flex items-center gap-2">
@@ -1202,15 +1148,12 @@ const ReportsPage = () => {
                     </tr>
                   ))}
                   {supplierItems.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد حركات موردين</td>
-                    </tr>
+                    <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد حركات موردين</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
-
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border gap-2">
               <h3 className="font-semibold text-foreground text-sm sm:text-base flex items-center gap-2">
@@ -1243,131 +1186,93 @@ const ReportsPage = () => {
                       <td className="p-2 font-bold">{getFormattedMovementQty(item)}</td>
                       <td className="p-2 text-muted-foreground">{getMovementDisplayUnit(item)}</td>
                       <td className="p-2 text-muted-foreground">{getWarehouseName(item.warehouse_id)}</td>
-                      <td className="p-2">
-                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive">منصرف</span>
-                      </td>
+                      <td className="p-2"><Badge variant="destructive" className="text-[10px]">منصرف</Badge></td>
                     </tr>
                   ))}
                   {clientItems.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="p-4 text-center text-muted-foreground">لا توجد حركات جهات صرف</td>
-                    </tr>
+                    <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">لا توجد حركات جهات صرف</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
-
           <div className="flex gap-2 justify-end">
-            <Button size="sm" variant="outline" onClick={exportEntitiesExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-              <FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />تصدير Excel شامل
-            </Button>
-            <Button size="sm" variant="outline" onClick={exportEntitiesPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-              <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />تصدير PDF شامل
-            </Button>
+            <Button size="sm" variant="outline" onClick={exportEntitiesExcel} className="text-[10px] sm:text-xs gap-1.5 h-8"><FileSpreadsheet className="w-3.5 h-3.5" />تصدير Excel</Button>
+            <Button size="sm" variant="outline" onClick={exportEntitiesPdf} className="text-[10px] sm:text-xs gap-1.5 h-8"><FileText className="w-3.5 h-3.5" />تصدير PDF</Button>
           </div>
         </div>
       )}
 
-      {/* محتوى تبويب الاستحقاقات */}
       {tab === 'entitlements' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex items-center gap-2">
               <label className="text-sm font-semibold text-foreground whitespace-nowrap">الشهر:</label>
-              <Input
-                type="month"
-                value={entitlementMonth}
-                onChange={e => setEntitlementMonth(e.target.value)}
-                className="w-44"
-              />
+              <Input type="month" value={entitlementMonth} onChange={e => setEntitlementMonth(e.target.value)} className="w-44" />
             </div>
             <div className="flex items-center gap-2">
               <label className="text-sm font-semibold text-foreground whitespace-nowrap">جهة الصرف:</label>
-              <select
-                value={selectedClient}
-                onChange={e => setSelectedClient(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
+              <select value={selectedClient} onChange={e => setSelectedClient(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:ring-2 focus:ring-ring">
                 <option value="">-- جميع جهات الصرف --</option>
-                {clientsWithEntitlements.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
+                {clientsWithEntitlements.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="flex gap-1.5 sm:gap-2 mr-auto">
-              <Button size="sm" variant="outline" onClick={exportEntitlementsExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-                <FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Excel
-              </Button>
-              <Button size="sm" variant="outline" onClick={exportEntitlementsPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-                <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> PDF
-              </Button>
+              <Button size="sm" variant="outline" onClick={exportEntitlementsExcel} className="text-[10px] sm:text-xs gap-1.5 h-8"><FileSpreadsheet className="w-3.5 h-3.5" /> Excel</Button>
+              <Button size="sm" variant="outline" onClick={exportEntitlementsPdf} className="text-[10px] sm:text-xs gap-1.5 h-8"><FileText className="w-3.5 h-3.5" /> PDF</Button>
               {selectedClient && (
-                <Button size="sm" variant="outline" onClick={printSelectedClientEntitlements} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-                  <Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> طباعة لجهة الصرف
-                </Button>
+                <Button size="sm" variant="outline" onClick={printSelectedClientEntitlements} className="text-[10px] sm:text-xs gap-1.5 h-8"><Printer className="w-3.5 h-3.5" /> طباعة</Button>
               )}
             </div>
           </div>
-
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {[
               { label: 'إجمالي الاستحقاقات', value: entitlementReport.length },
               { label: 'ضمن الاستحقاق', value: entitlementReport.filter((r: any) => !r.exceeded).length },
               { label: 'خارج الاستحقاق', value: entitlementReport.filter((r: any) => r.exceeded).length },
             ].map((s, i) => (
-              <div key={i} className={`bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card text-center ${i === 2 && entitlementReport.some((r: any) => r.exceeded) ? 'border-destructive/50' : ''}`}>
+              <div key={i} className={`bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border text-center ${i === 2 && entitlementReport.some((r: any) => r.exceeded) ? 'border-destructive/50' : ''}`}>
                 <div className={`text-lg sm:text-xl font-bold ${i === 2 ? 'text-destructive' : 'text-foreground'}`}>{s.value}</div>
-                <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{s.label}</div>
+                <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">{s.label}</div>
               </div>
             ))}
           </div>
-
           <div className="bg-card rounded-lg sm:rounded-xl border border-border shadow-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm min-w-[700px]">
                 <thead>
                   <tr className="bg-secondary/50 border-b border-border">
-                    <th className="text-right p-2 sm:p-3 font-semibold">م</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">المنتج</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">الاستحقاق</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">المصروف</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">المتبقي</th>
-                    <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                    <th className="text-center p-2 sm:p-3 font-semibold">الحالة</th>
+                    <th className="text-right p-3 font-semibold">م</th>
+                    <th className="text-right p-3 font-semibold">جهة الصرف</th>
+                    <th className="text-right p-3 font-semibold">المنتج</th>
+                    <th className="text-right p-3 font-semibold">الاستحقاق</th>
+                    <th className="text-right p-3 font-semibold">المصروف</th>
+                    <th className="text-right p-3 font-semibold">المتبقي</th>
+                    <th className="text-right p-3 font-semibold">الزيادة</th>
+                    <th className="text-right p-3 font-semibold">الوحدة</th>
+                    <th className="text-center p-3 font-semibold">الحالة</th>
                   </tr>
                 </thead>
                 <tbody>
                   {entitlementReport.map((r: any, i: number) => (
                     <tr key={`${r.clientId}-${r.productId}`} className={`border-b border-border hover:bg-secondary/30 ${r.exceeded ? 'bg-destructive/5' : ''}`}>
-                      <td className="p-2 sm:p-3">{i + 1}</td>
-                      <td className="p-2 sm:p-3 font-medium">{r.clientName}</td>
-                      <td className="p-2 sm:p-3">{r.productName}</td>
-                      <td className="p-2 sm:p-3 font-bold">{r.entitlement}</td>
-                      <td className="p-2 sm:p-3 font-bold">{r.actual}</td>
-                      <td className="p-2 sm:p-3">{r.remaining}</td>
-                      <td className="p-2 sm:p-3 text-muted-foreground">{r.unit}</td>
-                      <td className="p-2 sm:p-3 text-center">
+                      <td className="p-3">{i + 1}</td>
+                      <td className="p-3 font-medium">{r.clientName}</td>
+                      <td className="p-3">{r.productName}</td>
+                      <td className="p-3 font-bold">{r.entitlement}</td>
+                      <td className="p-3 font-bold">{r.actual}</td>
+                      <td className="p-3">{r.remaining}</td>
+                      <td className="p-3 font-bold text-destructive">{r.overAmount}</td>
+                      <td className="p-3 text-muted-foreground">{r.unit}</td>
+                      <td className="p-3 text-center">
                         {r.exceeded ? (
-                          <Badge variant="destructive" className="text-[10px]">
-                            خارج الاستحقاق (+{r.overAmount})
-                          </Badge>
+                          <Badge variant="destructive" className="text-[10px]">خارج الاستحقاق</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">
-                            ضمن الاستحقاق
-                          </Badge>
+                          <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">ضمن الاستحقاق</Badge>
                         )}
                       </td>
                     </tr>
                   ))}
-                  {entitlementReport.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-muted-foreground">
-                        لا توجد استحقاقات محددة. قم بإضافة استحقاقات من صفحة جهات الصرف.
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
