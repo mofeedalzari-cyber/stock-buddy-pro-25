@@ -219,7 +219,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
   // ========== جلب جميع البيانات ==========
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [catRes, whRes, supRes, clRes, prodRes, movRes, profRes, unitsRes, convRes] = await Promise.all([
+    const [catRes, whRes, supRes, clRes, prodRes, movRes, profRes, unitsRes, convRes, entRes] = await Promise.all([
       supabase.from('categories').select('*'),
       supabase.from('warehouses').select('*'),
       supabase.from('suppliers').select('*'),
@@ -229,6 +229,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       supabase.from('profiles').select('user_id, display_name'),
       (supabase as any).from('units').select('*'),
       (supabase as any).from('unit_conversions').select('*'),
+      (supabase as any).from('client_entitlements').select('*'),
     ]);
     if (catRes.data) setCategories(catRes.data as unknown as Category[]);
     if (whRes.data) setWarehouses(whRes.data as unknown as Warehouse[]);
@@ -250,6 +251,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     }
     if (unitsRes.data) setUnits(unitsRes.data as unknown as Unit[]);
     if (convRes.data) setUnitConversions(convRes.data as unknown as UnitConversion[]);
+    if (entRes.data) setEntitlements(entRes.data as unknown as ClientEntitlement[]);
     setLoading(false);
   }, []);
 
