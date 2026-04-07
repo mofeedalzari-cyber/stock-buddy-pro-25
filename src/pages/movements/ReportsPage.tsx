@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: src/pages/movements/ReportsPage.tsx (نسخة مصححة بالكامل)
+// ملف: src/pages/movements/ReportsPage.tsx (نسخة محدثة - إضافة تقرير استحقاقات بجهة صرف)
 // ============================================================================
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -47,6 +47,9 @@ const ReportsPage = () => {
   const [movementFilter, setMovementFilter] = useState<'all' | 'in' | 'out'>('all');
   const [selectedWarehouse, setSelectedWarehouse] = useState('');
   const [groupByProduct, setGroupByProduct] = useState(false);
+  
+  // حالة اختيار جهة الصرف في تقرير الاستحقاقات
+  const [selectedClient, setSelectedClient] = useState<string>('');
 
   const warehouseManager = selectedWarehouse
     ? warehouses.find(w => w.id === selectedWarehouse)?.manager || 'غير محدد'
@@ -601,12 +604,21 @@ const ReportsPage = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
+  // جهات الصرف التي لديها استحقاقات على الأقل
+  const clientsWithEntitlements = useMemo(() => {
+    const clientIds = new Set(entitlements.map(e => e.client_id));
+    return clients.filter(c => clientIds.has(c.id));
+  }, [clients, entitlements]);
+
   const entitlementReport = useMemo(() => {
     const [year, month] = entitlementMonth.split('-').map(Number);
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
     const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
 
-    return clients.flatMap(client => {
+    // تصفية العملاء حسب المختار (إن وجد)
+    const targetClients = selectedClient ? clients.filter(c => c.id === selectedClient) : clients;
+
+    return targetClients.flatMap(client => {
       const clientEntitlements = entitlements.filter(e => e.client_id === client.id);
       if (clientEntitlements.length === 0) return [];
 
@@ -655,11 +667,59 @@ const ReportsPage = () => {
         };
       }).filter(Boolean);
     });
-  }, [clients, entitlements, movements, products, entitlementMonth, selectedWarehouse, getUnitName]);
+  }, [clients, entitlements, movements, products, entitlementMonth, selectedWarehouse, getUnitName, selectedClient]);
+
+  // دالة طباعة تقرير الاستحقاقات لجهة صرف محددة (إذا تم اختيارها)
+  const printSelectedClientEntitlements = () => {
+    if (!selectedClient) {
+      toast({ title: 'تنبيه', description: 'يرجى اختيار جهة صرف أولاً', variant: 'destructive' });
+      return;
+    }
+    if (!checkWarehouseSelected()) return;
+    
+    const clientName = clients.find(c => c.id === selectedClient)?.name || 'غير محدد';
+    const filteredData = entitlementReport.filter(r => r.clientId === selectedClient);
+    if (filteredData.length === 0) {
+      toast({ title: 'تنبيه', description: 'لا توجد استحقاقات لهذه الجهة في الشهر المحدد', variant: 'destructive' });
+      return;
+    }
+    
+    const rows = filteredData.map((r: any, i: number) => [
+      String(i + 1),
+      r.productName,
+      String(r.entitlement),
+      String(r.actual),
+      String(r.remaining),
+      r.exceeded ? String(r.overAmount) : '-',
+      r.exceeded ? 'خارج الاستحقاق' : 'ضمن الاستحقاق',
+      r.unit,
+    ]);
+    
+    const html = buildSimplePdfHtml(
+      `تقرير استحقاقات ${clientName} - ${entitlementMonth}`,
+      ['م', 'المنتج', 'الاستحقاق', 'المصروف', 'المتبقي', 'الزيادة', 'الحالة', 'الوحدة'],
+      rows,
+      selectedWarehouse,
+      getWarehouseName,
+      warehouseManager,
+      displayName || '__________'
+    );
+    printPdfFromHtml(html, `استحقاقات_${clientName}`, toast);
+  };
 
   const exportEntitlementsPdf = () => {
     if (!checkWarehouseSelected()) return;
-    const rows = entitlementReport.map((r: any, i: number) => [
+    const dataToPrint = selectedClient 
+      ? entitlementReport.filter(r => r.clientId === selectedClient)
+      : entitlementReport;
+    if (dataToPrint.length === 0) {
+      toast({ title: 'تنبيه', description: 'لا توجد بيانات للطباعة', variant: 'destructive' });
+      return;
+    }
+    const title = selectedClient 
+      ? `تقرير الاستحقاقات - ${clients.find(c => c.id === selectedClient)?.name} - ${entitlementMonth}`
+      : `تقرير الاستحقاقات - ${entitlementMonth}`;
+    const rows = dataToPrint.map((r: any, i: number) => [
       String(i + 1),
       r.clientName,
       r.productName,
@@ -671,7 +731,7 @@ const ReportsPage = () => {
       r.unit,
     ]);
     const html = buildSimplePdfHtml(
-      `تقرير الاستحقاقات - ${entitlementMonth}`,
+      title,
       ['م', 'جهة الصرف', 'المنتج', 'الاستحقاق', 'المصروف', 'المتبقي', 'الزيادة', 'الحالة', 'الوحدة'],
       rows,
       selectedWarehouse,
@@ -684,8 +744,15 @@ const ReportsPage = () => {
 
   const exportEntitlementsExcel = () => {
     if (!checkWarehouseSelected()) return;
+    const dataToExport = selectedClient 
+      ? entitlementReport.filter(r => r.clientId === selectedClient)
+      : entitlementReport;
+    if (dataToExport.length === 0) {
+      toast({ title: 'تنبيه', description: 'لا توجد بيانات للتصدير', variant: 'destructive' });
+      return;
+    }
     exportExcel(
-      entitlementReport.map((r: any) => ({
+      dataToExport.map((r: any) => ({
         'جهة الصرف': r.clientName,
         'المنتج': r.productName,
         'الاستحقاق الشهري': r.entitlement,
@@ -696,7 +763,7 @@ const ReportsPage = () => {
         'الوحدة': r.unit,
       })),
       'الاستحقاقات',
-      'تقرير_الاستحقاقات'
+      selectedClient ? `استحقاقات_${clients.find(c => c.id === selectedClient)?.name}` : 'تقرير_الاستحقاقات'
     );
   };
 
@@ -746,7 +813,7 @@ const ReportsPage = () => {
         ))}
       </div>
 
-      {/* محتوى تبويب المنتجات */}
+      {/* محتوى تبويب المنتجات (نفس الكود السابق، لم يتغير) */}
       {tab === 'products' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
@@ -799,7 +866,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الكمية المتبقية</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {filteredProducts.map((p, i) => {
@@ -831,7 +898,7 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب الحركات */}
+      {/* محتوى تبويب الحركات (نفس الكود السابق) */}
       {tab === 'movements' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card">
@@ -893,7 +960,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">المورد</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">جهة الصرف</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {groupByProduct ? (
@@ -936,7 +1003,7 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب المخازن */}
+      {/* محتوى تبويب المخازن (نفس الكود السابق) */}
       {tab === 'warehouses' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-5 border border-border shadow-card">
@@ -972,7 +1039,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الكمية</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {warehouseStockDetails.map((d, i) => (
@@ -990,7 +1057,7 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب المخزون المنخفض */}
+      {/* محتوى تبويب المخزون المنخفض (نفس الكود السابق) */}
       {tab === 'low-stock' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
@@ -1029,7 +1096,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">المخزن</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الحالة</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {lowStock.map((p, i) => {
@@ -1057,7 +1124,7 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب الموردين وجهات الصرف */}
+      {/* محتوى تبويب الموردين وجهات الصرف (نفس الكود السابق) */}
       {tab === 'entities' && (
         <div className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-4">
@@ -1091,7 +1158,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 font-semibold">الكمية</th>
                     <th className="text-right p-2 font-semibold">الوحدة</th>
                     <th className="text-right p-2 font-semibold">المخزن</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {supplierItems.map((item, idx) => (
@@ -1133,7 +1200,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 font-semibold">الوحدة</th>
                     <th className="text-right p-2 font-semibold">المخزن</th>
                     <th className="text-right p-2 font-semibold">النوع</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {clientItems.map((item, idx) => (
@@ -1168,9 +1235,10 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* محتوى تبويب الاستحقاقات */}
+      {/* محتوى تبويب الاستحقاقات (معدل بإضافة قائمة جهات الصرف) */}
       {tab === 'entitlements' && (
         <div className="space-y-4 sm:space-y-5">
+          {/* شريط التحكم: الشهر + قائمة جهات الصرف + أزرار التصدير */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex items-center gap-2">
               <label className="text-sm font-semibold text-foreground whitespace-nowrap">الشهر:</label>
@@ -1181,13 +1249,31 @@ const ReportsPage = () => {
                 className="w-44"
               />
             </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-foreground whitespace-nowrap">جهة الصرف:</label>
+              <select
+                value={selectedClient}
+                onChange={e => setSelectedClient(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">-- جميع جهات الصرف --</option>
+                {clientsWithEntitlements.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
             <div className="flex gap-1.5 sm:gap-2 mr-auto">
               <Button size="sm" variant="outline" onClick={exportEntitlementsExcel} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-                <FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" />Excel
+                <FileSpreadsheet className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Excel
               </Button>
               <Button size="sm" variant="outline" onClick={exportEntitlementsPdf} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
-                <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />PDF
+                <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> PDF
               </Button>
+              {selectedClient && (
+                <Button size="sm" variant="outline" onClick={printSelectedClientEntitlements} className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3">
+                  <Printer className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> طباعة لجهة الصرف
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1219,7 +1305,7 @@ const ReportsPage = () => {
                     <th className="text-right p-2 sm:p-3 font-semibold">المتبقي</th>
                     <th className="text-right p-2 sm:p-3 font-semibold">الوحدة</th>
                     <th className="text-center p-2 sm:p-3 font-semibold">الحالة</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {entitlementReport.map((r: any, i: number) => (
