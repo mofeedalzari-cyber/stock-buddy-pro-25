@@ -341,30 +341,61 @@ const ReportsPage = () => {
     }
   };
 
+  // دالة مساعدة لتوليد عنوان تقرير الحركات حسب الفلتر والمخزن
+  const getMovementReportTitle = (isSummary: boolean = false) => {
+    const warehouseName = selectedWarehouse ? getWarehouseName(selectedWarehouse) : '';
+    const prefix = isSummary ? 'ملخص ' : '';
+    
+    switch (movementFilter) {
+      case 'in':
+        return `${prefix}تقرير حركة الوارد إلى مخزن ${warehouseName}`;
+      case 'out':
+        return `${prefix}تقرير حركة الصادر من مخزن ${warehouseName}`;
+      default:
+        return `${prefix}تقرير حركة المخزون (وارد وصادر) - مخزن ${warehouseName}`;
+    }
+  };
+
   const exportMovementsPdf = () => {
     if (!checkWarehouseSelected()) return;
+    
     if (groupByProduct) {
       const rows = groupedByProduct.map((item, i) => [
-        String(i + 1), item.productName, getFormattedNetQty(item.productId, item.netQty),
+        String(i + 1),
+        item.productName,
+        getFormattedNetQty(item.productId, item.netQty),
         getWarehouseName(selectedWarehouse),
       ]);
       const html = buildSimplePdfHtml(
-        'ملخص حركات المخزون حسب المنتج',
+        getMovementReportTitle(true),
         ['م', 'المنتج', 'صافي الكمية', 'المخزن'],
-        rows, selectedWarehouse, getWarehouseName, warehouseManager, displayName || '__________'
+        rows,
+        selectedWarehouse,
+        getWarehouseName,
+        warehouseManager,
+        displayName || '__________'
       );
       printPdfFromHtml(html, 'ملخص_الحركات', toast);
     } else {
       const rows = filteredExpanded.map((m, i) => [
-        String(i + 1), m.date, m.type === 'in' ? 'وارد' : 'صادر', m.productName,
-        getFormattedMovementQty(m), getMovementDisplayUnit(m), getWarehouseName(m.warehouse_id),
+        String(i + 1),
+        m.date,
+        m.type === 'in' ? 'وارد' : 'صادر',
+        m.productName,
+        getFormattedMovementQty(m),
+        getMovementDisplayUnit(m),
+        getWarehouseName(m.warehouse_id),
         m.entity_type === 'supplier' ? getSupplierName(m.entity_id) : '-',
         m.entity_type === 'client' ? getClientName(m.entity_id) : '-',
       ]);
       const html = buildSimplePdfHtml(
-        'تقرير حركة المخزون',
+        getMovementReportTitle(false),
         ['م', 'التاريخ', 'النوع', 'المنتج', 'الكمية', 'الوحدة', 'المخزن', 'المورد', 'جهة الصرف'],
-        rows, selectedWarehouse, getWarehouseName, warehouseManager, displayName || '__________'
+        rows,
+        selectedWarehouse,
+        getWarehouseName,
+        warehouseManager,
+        displayName || '__________'
       );
       printPdfFromHtml(html, 'تقرير_الحركات', toast);
     }
@@ -729,8 +760,8 @@ const ReportsPage = () => {
           <div className="bg-card rounded-lg sm:rounded-xl p-3 sm:p-4 border border-border shadow-card">
             <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
               <div className="flex gap-2 flex-1">
-                <div className="flex-1"><label className="text-[10px] sm:text-xs font-medium text-muted-foreground block mb-1">من تاريخ</label><Input type="date" value={dateFrom} onChange={setDateFrom} className="h-8 sm:h-9 text-xs sm:text-sm" /></div>
-                <div className="flex-1"><label className="text-[10px] sm:text-xs font-medium text-muted-foreground block mb-1">إلى تاريخ</label><Input type="date" value={dateTo} onChange={setDateTo} className="h-8 sm:h-9 text-xs sm:text-sm" /></div>
+                <div className="flex-1"><label className="text-[10px] sm:text-xs font-medium text-muted-foreground block mb-1">من تاريخ</label><Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 sm:h-9 text-xs sm:text-sm" /></div>
+                <div className="flex-1"><label className="text-[10px] sm:text-xs font-medium text-muted-foreground block mb-1">إلى تاريخ</label><Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 sm:h-9 text-xs sm:text-sm" /></div>
               </div>
               <div className="flex rounded-lg border border-border overflow-hidden self-start sm:self-auto">
                 {(['all', 'in', 'out'] as const).map(f => (
