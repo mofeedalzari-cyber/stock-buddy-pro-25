@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
+  // تمت إضافة هذا القسم للسماح برابط منصة Render
+  preview: {
+    allowedHosts: ["stock-buddy-pro-25-t7b6.onrender.com"]
+  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),
